@@ -292,4 +292,5 @@ export function PdfResize({ onBack, title }: ToolProps) {
     </ToolContainer>
   );
 }
- 
+
+    
