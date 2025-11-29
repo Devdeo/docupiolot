@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { PDFDocument, rgb } from 'pdf-lib';
-import { motion, AnimatePresence } from 'framer-motion';
+import { PDFDocument } from 'pdf-lib';
+import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { Loader2, Trash2, GripVertical } from 'lucide-react';
 
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -160,38 +160,43 @@ export default function AddImagesToPdfClient({ onBack, title }: ToolProps) {
           
           {files.length > 0 && (
             <div className='space-y-2'>
-              <h3 className="text-sm font-medium text-muted-foreground">Uploaded Images ({files.length})</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              <h3 className="text-sm font-medium text-muted-foreground">Uploaded Images ({files.length}) - Drag to reorder</h3>
+              <Reorder.Group axis="y" values={files} onReorder={setFiles} className="space-y-2">
                 <AnimatePresence>
-                  {files.map((imageFile) => (
-                    <motion.div
+                  {files.map((imageFile, index) => (
+                    <Reorder.Item
                       key={imageFile.id}
-                      layout
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      className="relative group aspect-square"
+                      value={imageFile}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      className="relative group p-2 pr-8 border rounded-md bg-muted/50 flex items-center gap-4"
                     >
-                      <Image
-                        src={imageFile.preview}
-                        alt={imageFile.file.name}
-                        fill
-                        className="object-cover rounded-md border"
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          className='h-8 w-8'
-                          onClick={() => handleRemoveFile(imageFile.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                      <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab" />
+                      <div className='relative w-16 h-16 aspect-square'>
+                        <Image
+                          src={imageFile.preview}
+                          alt={imageFile.file.name}
+                          fill
+                          className="object-cover rounded-sm border"
+                        />
                       </div>
-                    </motion.div>
+                      <div className='flex-1 truncate text-sm'>
+                          <p className="font-medium">{imageFile.file.name}</p>
+                          <p className="text-muted-foreground">{Math.round(imageFile.file.size / 1024)} KB</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className='absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:text-destructive'
+                        onClick={() => handleRemoveFile(imageFile.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </Reorder.Item>
                   ))}
                 </AnimatePresence>
-              </div>
+              </Reorder.Group>
             </div>
           )}
         </CardContent>
