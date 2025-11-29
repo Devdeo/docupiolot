@@ -64,7 +64,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
         const existingPdfBytes = await file.arrayBuffer();
         
         setProgressMessage(`Analyzing and converting pages...`);
-        const pdfjs = await import('pdfjs-dist');
+        const pdfjs = await import('pdfjs-dist/build/pdf');
         pdfjs.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.js`;
 
         const pdf = await pdfjs.getDocument(existingPdfBytes).promise;
@@ -113,7 +113,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
             
             const newWidth = Math.round(pageData.width * scale);
             const newHeight = Math.round(pageData.height * scale);
-            canvas.width = newWidth;
+canvas.width = newWidth;
             canvas.height = newHeight;
             ctx.drawImage(img, 0, 0, newWidth, newHeight);
             
