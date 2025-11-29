@@ -51,7 +51,9 @@ export function ImageResize({ onBack, title }: ToolProps) {
     setTimeout(async () => {
       try {
           const photoDataUri = await fileToDataUrl(file);
-          
+          const targetBytes = (parseFloat(targetSize) || 2) * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
+          const outputMimeType = `image/${outputExtension === 'jpg' ? 'jpeg' : outputExtension}`;
+
           const img = await new Promise<HTMLImageElement>((resolve, reject) => {
               const image = document.createElement('img');
               image.onload = () => resolve(image);
@@ -59,63 +61,68 @@ export function ImageResize({ onBack, title }: ToolProps) {
               image.src = photoDataUri;
           });
 
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          
-          if (!ctx) {
-              throw new Error('Could not get canvas context');
-          }
+          // --- Two-stage compression: 1. Quality, 2. Dimensions + Quality ---
 
-          canvas.width = img.width;
-          canvas.height = img.height;
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          let resizedDataUrl: string | null = null;
+          let finalBlob: Blob | null = null;
 
-          const outputMimeType = `image/${outputExtension === 'jpg' ? 'jpeg' : outputExtension}`;
-          const targetBytes = (parseFloat(targetSize) || 2) * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
-
-          // --- Binary search for optimal quality ---
-          let low = 0;
-          let high = 1;
-          let bestQuality = 0.1;
-          let resizedDataUrl: string | undefined;
-          let finalBlob: Blob | undefined;
-          const precision = 1000; // Stop when size is within 1KB of target.
-
-          // Perform a few iterations to find the best quality
-          for (let i = 0; i < 15; i++) { // Increased iterations for more precision
-              const mid = (low + high) / 2;
-              const currentDataUrl = canvas.toDataURL(outputMimeType, mid);
-              const currentBlob = await dataUrlToBlob(currentDataUrl);
+          // Stage 1: Try to meet target by reducing quality only
+          const findBestQuality = async (canvas: HTMLCanvasElement): Promise<{url: string, blob: Blob} | null> => {
+              let low = 0;
+              let high = 1;
+              let bestUrl: string | null = null;
+              let bestBlob: Blob | null = null;
               
-              if (currentBlob.size <= targetBytes) {
-                  bestQuality = mid;
-                  resizedDataUrl = currentDataUrl;
-                  finalBlob = currentBlob;
-                  low = mid; // Try for higher quality
-              } else {
-                  high = mid; // Need to reduce quality
+              // 10 iterations of binary search should be enough
+              for (let i = 0; i < 10; i++) {
+                  const mid = (low + high) / 2;
+                  const currentDataUrl = canvas.toDataURL(outputMimeType, mid);
+                  const currentBlob = await dataUrlToBlob(currentDataUrl);
+                  
+                  if (currentBlob.size <= targetBytes) {
+                      bestUrl = currentDataUrl;
+                      bestBlob = currentBlob;
+                      low = mid; // Try for higher quality
+                  } else {
+                      high = mid; // Need to reduce quality
+                  }
               }
+              if (bestUrl && bestBlob) {
+                return { url: bestUrl, blob: bestBlob };
+              }
+              return null;
+          }
+          
+          const mainCanvas = document.createElement('canvas');
+          const mainCtx = mainCanvas.getContext('2d');
+          if (!mainCtx) throw new Error('Could not get canvas context');
+          mainCanvas.width = img.width;
+          mainCanvas.height = img.height;
+          mainCtx.drawImage(img, 0, 0);
 
-              if (finalBlob && Math.abs(targetBytes - finalBlob.size) < precision) {
-                break; // Exit if we are close enough
+          let result = await findBestQuality(mainCanvas);
+
+          // Stage 2: If still too big, reduce dimensions and re-run quality search
+          if (!result) {
+              const tempCanvas = document.createElement('canvas');
+              const tempCtx = tempCanvas.getContext('2d');
+              if (!tempCtx) throw new Error('Could not get canvas context');
+
+              // Reduce dimensions in steps (90%, 80%, etc.)
+              for (let scale = 0.9; scale > 0.1 && !result; scale -= 0.1) {
+                  tempCanvas.width = Math.round(img.width * scale);
+                  tempCanvas.height = Math.round(img.height * scale);
+                  tempCtx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
+                  result = await findBestQuality(tempCanvas);
               }
           }
           
-          // If we never found a suitable size, use the lowest quality result that was valid
-          if (!resizedDataUrl) {
-            const lowestQualityUrl = canvas.toDataURL(outputMimeType, bestQuality);
-            const lowestQualityBlob = await dataUrlToBlob(lowestQualityUrl);
-            if(lowestQualityBlob.size <= targetBytes){
-                resizedDataUrl = lowestQualityUrl;
-                finalBlob = lowestQualityBlob;
-            } else {
-                throw new Error(`Could not resize image below ${targetSize}${targetUnit}. Please try a larger target size.`);
-            }
+          if (!result) {
+              throw new Error(`Could not resize image below ${targetSize}${targetUnit}. Please try a larger target size.`);
           }
-          
-          if (!resizedDataUrl || !finalBlob) {
-              throw new Error("Failed to resize image to target size.");
-          }
+
+          resizedDataUrl = result.url;
+          finalBlob = result.blob;
 
           setResizedImage(resizedDataUrl);
           toast({
