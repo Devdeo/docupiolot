@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface ToolProps {
   onBack: () => void;
@@ -32,6 +33,7 @@ export function ImageResize({ onBack, title }: ToolProps) {
   const [targetWidth, setTargetWidth] = useState('');
   const [targetHeight, setTargetHeight] = useState('');
   const [targetDpi, setTargetDpi] = useState('300');
+  const [maintainAspectRatio, setMaintainAspectRatio] = useState(true);
 
 
   const [outputFilename, setOutputFilename] = useState('');
@@ -56,7 +58,7 @@ export function ImageResize({ onBack, title }: ToolProps) {
 
   const handleWidthChange = (value: string) => {
     setTargetWidth(value);
-    if (originalDimensions) {
+    if (maintainAspectRatio && originalDimensions) {
       const numValue = parseInt(value, 10);
       if (!isNaN(numValue) && numValue > 0) {
         const aspectRatio = originalDimensions.height / originalDimensions.width;
@@ -69,7 +71,7 @@ export function ImageResize({ onBack, title }: ToolProps) {
 
   const handleHeightChange = (value: string) => {
     setTargetHeight(value);
-    if (originalDimensions) {
+    if (maintainAspectRatio && originalDimensions) {
       const numValue = parseInt(value, 10);
       if (!isNaN(numValue) && numValue > 0) {
         const aspectRatio = originalDimensions.width / originalDimensions.height;
@@ -199,7 +201,7 @@ export function ImageResize({ onBack, title }: ToolProps) {
           setIsProcessing(false);
       }
     }, 10);
-  }, [file, targetSize, targetUnit, outputExtension, toast, targetWidth, targetHeight]);
+  }, [file, targetSize, targetUnit, outputExtension, toast, targetWidth, targetHeight, maintainAspectRatio]);
   
   const handleDownload = () => {
     if (!resizedImage || !file) return;
@@ -319,6 +321,15 @@ export function ImageResize({ onBack, title }: ToolProps) {
                                 <Input id="height" value={targetHeight} onChange={(e) => handleHeightChange(e.target.value)} type="number" />
                               </div>
                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox id="aspect-ratio" checked={maintainAspectRatio} onCheckedChange={(checked) => setMaintainAspectRatio(checked as boolean)} />
+                              <label
+                                htmlFor="aspect-ratio"
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                              >
+                                Maintain aspect ratio
+                              </label>
+                            </div>
                             <div className="space-y-2">
                               <Label htmlFor="dpi">DPI (optional)</Label>
                               <Input id="dpi" value={targetDpi} onChange={(e) => setTargetDpi(e.target.value)} type="number" placeholder='e.g. 300' />
