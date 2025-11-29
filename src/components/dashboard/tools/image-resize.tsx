@@ -44,11 +44,9 @@ export function ImageResize({ onBack, title }: ToolProps) {
       return;
     }
 
-    // Set processing state immediately to show loader
     setIsProcessing(true);
     setResizedImage(null);
 
-    // Use a timeout to allow the UI to update to the processing state before the heavy work begins.
     setTimeout(async () => {
       try {
           const photoDataUri = await fileToDataUrl(file);
@@ -62,55 +60,62 @@ export function ImageResize({ onBack, title }: ToolProps) {
               image.src = photoDataUri;
           });
 
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error('Could not get canvas context');
+
           let currentWidth = img.width;
           let currentHeight = img.height;
           let resizedDataUrl: string | null = null;
           let finalBlob: Blob | null = null;
-          let quality = 0.9; // Start with high quality
-
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          if (!ctx) throw new Error('Could not get canvas context');
           
-          // Optimization: Attempt to resize in a few passes
-          for (let i = 0; i < 15; i++) { // Max 15 attempts to prevent infinite loops
-              canvas.width = currentWidth;
-              canvas.height = currentHeight;
-              ctx.drawImage(img, 0, 0, currentWidth, currentHeight);
-              
-              const currentDataUrl = canvas.toDataURL(outputMimeType, quality);
-              const currentBlob = await dataUrlToBlob(currentDataUrl);
+          let dimensionScale = 1.0;
+          const maxDimensionSteps = 10; // Prevent infinite loops
 
-              if (currentBlob.size <= targetBytes) {
-                  resizedDataUrl = currentDataUrl;
-                  finalBlob = currentBlob;
-                  // If we are well under target, we can stop.
-                  if (currentBlob.size < targetBytes * 0.9) {
-                    break;
-                  }
-                  // otherwise, try to improve quality slightly in next pass if there is one
-                  quality += 0.05;
+          for (let i = 0; i < maxDimensionSteps; i++) {
+            currentWidth = Math.round(img.width * dimensionScale);
+            currentHeight = Math.round(img.height * dimensionScale);
+            canvas.width = currentWidth;
+            canvas.height = currentHeight;
+            ctx.drawImage(img, 0, 0, currentWidth, currentHeight);
 
-              } else {
-                  // If quality is already low, reduce dimensions
-                  if (quality < 0.5) {
-                      const scale = Math.sqrt(targetBytes / currentBlob.size) * 0.9; // Aggressively scale down
-                      currentWidth = Math.round(currentWidth * scale);
-                      currentHeight = Math.round(currentHeight * scale);
-                  } else {
-                    // Reduce quality
-                    quality -= 0.1;
-                  }
-              }
-              // Ensure quality and dimensions are within valid ranges
-              quality = Math.max(0.1, Math.min(1, quality));
-              if(currentWidth < 1 || currentHeight < 1) {
-                break;
-              }
+            // Check size at lowest quality
+            const lowestQualityDataUrl = canvas.toDataURL(outputMimeType, 0.1);
+            const lowestQualityBlob = await dataUrlToBlob(lowestQualityDataUrl);
+
+            if (lowestQualityBlob.size > targetBytes) {
+                // Even at lowest quality, it's too big. Reduce dimensions.
+                dimensionScale *= 0.9;
+                continue;
+            }
+
+            // Binary search for the best quality at current dimensions
+            let low = 0.1;
+            let high = 1.0;
+            let bestQualityUrl = lowestQualityDataUrl;
+            let bestQualityBlob = lowestQualityBlob;
+
+            for (let j = 0; j < 10; j++) { // 10 steps are enough for precision
+                const mid = (low + high) / 2;
+                const currentDataUrl = canvas.toDataURL(outputMimeType, mid);
+                const currentBlob = await dataUrlToBlob(currentDataUrl);
+                
+                if (currentBlob.size <= targetBytes) {
+                    bestQualityUrl = currentDataUrl;
+                    bestQualityBlob = currentBlob;
+                    low = mid; // Try for higher quality
+                } else {
+                    high = mid; // Need lower quality
+                }
+            }
+            
+            resizedDataUrl = bestQualityUrl;
+            finalBlob = bestQualityBlob;
+            break; // Found a suitable size
           }
 
           if (!resizedDataUrl || !finalBlob) {
-            throw new Error(`Could not resize image below ${targetSize}${targetUnit}. Please try a larger target size or a different image.`);
+            throw new Error(`Could not resize image below ${targetSize}${targetUnit}. Please try a larger target size.`);
           }
 
           setResizedImage(resizedDataUrl);
@@ -130,7 +135,7 @@ export function ImageResize({ onBack, title }: ToolProps) {
       } finally {
           setIsProcessing(false);
       }
-    }, 10); // A very small delay to free up the main thread for UI update
+    }, 10);
   }, [file, targetSize, targetUnit, outputExtension, toast]);
   
   const handleDownload = () => {
@@ -234,9 +239,12 @@ export function ImageResize({ onBack, title }: ToolProps) {
               {isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Resizing...</> : 'Resize Image'}
             </Button>
           )}
-          {file && (
-             <Button variant="outline" className="w-full" size="lg" onClick={handleClear} disabled={isProcessing}>Clear</Button>
-          )}
+           {resizedImage && !isProcessing && (
+             <Button variant="outline" className="w-full" size="lg" onClick={handleClear} disabled={isProcessing}>Start Over</Button>
+           )}
+           {!resizedImage && file && !isProcessing && (
+              <Button variant="outline" className="w-full" size="lg" onClick={handleClear} disabled={isProcessing}>Clear</Button>
+           )}
         </CardFooter>
       </Card>
     </ToolContainer>
