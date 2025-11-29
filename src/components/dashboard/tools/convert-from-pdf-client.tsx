@@ -105,7 +105,7 @@ export default function ConvertFromPdfClient({ onBack, title }: ToolProps) {
 
     const pdfjs = await import('pdfjs-dist/build/pdf');
     const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.mjs');
-    pdfjs.GlobalWorkerOptions.workerSrc = new URL((pdfjsWorker as any).default, import.meta.url).toString();
+    pdfjs.GlobalWorkerOptions.workerSrc = (pdfjsWorker as any).default;
 
     const pdfData = await file.arrayBuffer();
     const pdf = await pdfjs.getDocument({ data: pdfData }).promise;
@@ -146,7 +146,7 @@ export default function ConvertFromPdfClient({ onBack, title }: ToolProps) {
     // 1. Extract text from PDF on the client
     const pdfjs = await import('pdfjs-dist/build/pdf');
     const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.mjs');
-    pdfjs.GlobalWorkerOptions.workerSrc = new URL((pdfjsWorker as any).default, import.meta.url).toString();
+    pdfjs.GlobalWorkerOptions.workerSrc = (pdfjsWorker as any).default;
 
     const pdfData = await file.arrayBuffer();
     const pdf = await pdfjs.getDocument({ data: pdfData }).promise;
