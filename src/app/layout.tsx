@@ -9,6 +9,7 @@ import { useAdblockDetector } from '@/hooks/use-adblock-detector';
 import AdblockDetectedPage from './adblock-detected/page';
 import { InterstitialAdProvider } from '@/hooks/use-interstitial-ad';
 import { InterstitialAd } from '@/components/analytics/interstitial-ad';
+import Head from 'next/head';
 
 // Metadata is now exported from a client component, which is not ideal for SEO.
 // This is a tradeoff for the adblock detection logic residing in the root layout.
@@ -28,21 +29,33 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <title>DocuPilot - Free & Private Document Processing Tools</title>
-        <meta
-            name="description"
-            content="Your all-in-one document processing assistant. Resize images, compress PDFs, convert documents, and more. All tools run in your browser for maximum privacy."
-        />
-        <meta name="keywords" content="pdf tools, image resizer, document converter, compress pdf, edit pdf, passport photo" />
-        <meta property="og:title" content="DocuPilot - Free & Private Document Processing Tools" />
-        <meta property="og:description" content="Resize, convert, and edit documents with professional-grade tools that respect your privacy." />
+        <title>DocuPilot — Free Online PDF, Image & Document Tools (India)</title>
+        <meta name="description" content="DocuPilot offers free online tools for PDF editing, image compression, converters, photo editing, passport photo creation, and more. Fast, secure, and perfect for India users." />
+        <link rel="canonical" href="https://docupilot.app/" />
+        <meta name="keywords" content="pdf tools india, image compressor india, online pdf editor, passport photo maker, photo to 50kb, convert pdf online, document tools india" />
+
+        {/* Open Graph */}
+        <meta property="og:title" content="DocuPilot — Free Online PDF, Image & Document Tools" />
+        <meta property="og:description" content="Free tools for PDF, images, converters, and document editing. Fast & secure." />
+        <meta property="og:url" content="https://docupilot.app/" />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://docupilot.app" />
         <meta property="og:image" content="/og-image.png" />
+        
+        {/* Twitter */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="DocuPilot - Free & Private Document Processing Tools" />
-        <meta name="twitter:description" content="Your all-in-one document processing assistant. All tools run securely in your browser." />
+        <meta name="twitter:title" content="DocuPilot — Free Online PDF & Image Tools" />
+        <meta name="twitter:description" content="Fast and free PDF & image editing tools for India users." />
         <meta name="twitter:image" content="/twitter-image.png" />
+
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: `
+        {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "name": "DocuPilot",
+          "url": "https://docupilot.app/"
+        }
+        `}} />
+
         <meta name="robots" content={adblockDetected ? "noindex, nofollow" : "index, follow"} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
