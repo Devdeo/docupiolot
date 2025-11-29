@@ -23,7 +23,6 @@ export function ImageResize({ onBack, title }: ToolProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [targetSize, setTargetSize] = useState('2');
   const [targetUnit, setTargetUnit] = useState('MB');
-  const [dpi, setDpi] = useState('150');
   const [outputFilename, setOutputFilename] = useState('');
   const [outputExtension, setOutputExtension] = useState('jpg');
   const { toast } = useToast();
@@ -65,11 +64,8 @@ export function ImageResize({ onBack, title }: ToolProps) {
             throw new Error('Could not get canvas context');
         }
 
-        const currentDpi = parseInt(dpi, 10) || 150;
-        const scale = currentDpi / 72; // Assume original is 72 dpi screen default
-
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
+        canvas.width = img.width;
+        canvas.height = img.height;
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
         let quality = 0.9;
@@ -179,25 +175,19 @@ export function ImageResize({ onBack, title }: ToolProps) {
           
           <div className="space-y-4">
             <h3 className="font-medium">Resize Options</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               <div className="space-y-2">
-                <Label htmlFor="size">Target Size</Label>
-                <div className="flex gap-2">
-                    <Input id="size" value={targetSize} onChange={(e) => setTargetSize(e.target.value)} placeholder="e.g., 2" type="number" className="w-full" disabled={!file || isProcessing}/>
-                    <Select value={targetUnit} onValueChange={setTargetUnit} disabled={!file || isProcessing}>
-                        <SelectTrigger className="w-[80px]">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="KB">KB</SelectItem>
-                            <SelectItem value="MB">MB</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="quality">Quality (DPI)</Label>
-                <Input id="quality" value={dpi} onChange={(e) => setDpi(e.target.value)} placeholder="e.g., 150" type="number" disabled={!file || isProcessing} />
+            <div className="space-y-2">
+              <Label htmlFor="size">Target Size</Label>
+              <div className="flex gap-2">
+                  <Input id="size" value={targetSize} onChange={(e) => setTargetSize(e.target.value)} placeholder="e.g., 2" type="number" className="w-full" disabled={!file || isProcessing}/>
+                  <Select value={targetUnit} onValueChange={setTargetUnit} disabled={!file || isProcessing}>
+                      <SelectTrigger className="w-[80px]">
+                          <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="KB">KB</SelectItem>
+                          <SelectItem value="MB">MB</SelectItem>
+                      </SelectContent>
+                  </Select>
               </div>
             </div>
           </div>
