@@ -16,6 +16,7 @@ import { ImageConverter } from './tools/image-converter';
 import { PdfToImage } from './tools/pdf-to-image';
 import { AddImagesToPdf } from './tools/add-images-to-pdf';
 import { DocxToPdf } from './tools/docx-to-pdf';
+import { ExcelToPdf } from './tools/excel-to-pdf';
 
 type ToolWithComponent = Tool & {
   component: React.ComponentType<{ onBack: () => void; title: string }>;
@@ -36,6 +37,7 @@ const toolComponents: Record<
   'pdf-to-image': PdfToImage,
   'add-images-to-pdf': AddImagesToPdf,
   'docx-to-pdf': DocxToPdf,
+  'excel-to-pdf': ExcelToPdf,
 };
 
 const tools: ToolWithComponent[] = toolDefinitions.map((tool) => ({

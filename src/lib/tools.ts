@@ -3,6 +3,7 @@ import {
   Combine,
   FileImage,
   FilePenLine,
+  FileSpreadsheet,
   FileText,
   Image as ImageIcon,
   Images,
@@ -48,6 +49,12 @@ export const tools: Tool[] = [
     title: 'Word to PDF',
     description: 'Convert DOCX files to PDF documents.',
     icon: FileText,
+  },
+  {
+    id: 'excel-to-pdf',
+    title: 'Excel to PDF',
+    description: 'Convert CSV and XLSX files to PDF.',
+    icon: FileSpreadsheet,
   },
   {
     id: 'convert-from-pdf',
