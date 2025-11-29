@@ -105,7 +105,10 @@ export function ImageResize({ onBack, title }: ToolProps) {
     const link = document.createElement('a');
     link.href = resizedImage;
     const originalName = file.name.substring(0, file.name.lastIndexOf('.'));
-    const fileExtension = resizedImage.split(';')[0].split('/')[1] || 'png';
+    const mimeType = resizedImage.split(';')[0].split(':')[1];
+    let fileExtension = mimeType ? mimeType.split('/')[1] : 'png';
+    if (fileExtension === 'jpeg') fileExtension = 'jpg';
+    
     link.download = `desized-${originalName}.${fileExtension}`;
     document.body.appendChild(link);
     link.click();
