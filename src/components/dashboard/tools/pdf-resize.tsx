@@ -68,7 +68,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
 
             // Flatten forms which can sometimes reduce size.
             const form = pdfDoc.getForm();
-            if(form && !form.isFlattened()) {
+            if(form && typeof form.isFlattened === 'function' && !form.isFlattened()) {
                 try {
                     form.flatten();
                 } catch(e) {
@@ -312,3 +312,5 @@ export function PdfResize({ onBack, title }: ToolProps) {
     </ToolContainer>
   );
 }
+
+    
