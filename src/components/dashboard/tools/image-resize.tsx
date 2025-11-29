@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,7 +34,7 @@ export function ImageResize({ onBack, title }: ToolProps) {
     }
   }, [file]);
 
-  const handleResize = async () => {
+  const handleResize = useCallback(async () => {
     if (!file) {
       toast({
         variant: 'destructive',
@@ -44,6 +44,7 @@ export function ImageResize({ onBack, title }: ToolProps) {
       return;
     }
 
+    // Set processing state immediately to show loader
     setIsProcessing(true);
     setResizedImage(null);
 
@@ -61,68 +62,56 @@ export function ImageResize({ onBack, title }: ToolProps) {
               image.src = photoDataUri;
           });
 
-          // --- Two-stage compression: 1. Quality, 2. Dimensions + Quality ---
-
+          let currentWidth = img.width;
+          let currentHeight = img.height;
           let resizedDataUrl: string | null = null;
           let finalBlob: Blob | null = null;
+          let quality = 0.9; // Start with high quality
 
-          // Stage 1: Try to meet target by reducing quality only
-          const findBestQuality = async (canvas: HTMLCanvasElement): Promise<{url: string, blob: Blob} | null> => {
-              let low = 0;
-              let high = 1;
-              let bestUrl: string | null = null;
-              let bestBlob: Blob | null = null;
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error('Could not get canvas context');
+          
+          // Optimization: Attempt to resize in a few passes
+          for (let i = 0; i < 15; i++) { // Max 15 attempts to prevent infinite loops
+              canvas.width = currentWidth;
+              canvas.height = currentHeight;
+              ctx.drawImage(img, 0, 0, currentWidth, currentHeight);
               
-              // 10 iterations of binary search should be enough
-              for (let i = 0; i < 10; i++) {
-                  const mid = (low + high) / 2;
-                  const currentDataUrl = canvas.toDataURL(outputMimeType, mid);
-                  const currentBlob = await dataUrlToBlob(currentDataUrl);
-                  
-                  if (currentBlob.size <= targetBytes) {
-                      bestUrl = currentDataUrl;
-                      bestBlob = currentBlob;
-                      low = mid; // Try for higher quality
+              const currentDataUrl = canvas.toDataURL(outputMimeType, quality);
+              const currentBlob = await dataUrlToBlob(currentDataUrl);
+
+              if (currentBlob.size <= targetBytes) {
+                  resizedDataUrl = currentDataUrl;
+                  finalBlob = currentBlob;
+                  // If we are well under target, we can stop.
+                  if (currentBlob.size < targetBytes * 0.9) {
+                    break;
+                  }
+                  // otherwise, try to improve quality slightly in next pass if there is one
+                  quality += 0.05;
+
+              } else {
+                  // If quality is already low, reduce dimensions
+                  if (quality < 0.5) {
+                      const scale = Math.sqrt(targetBytes / currentBlob.size) * 0.9; // Aggressively scale down
+                      currentWidth = Math.round(currentWidth * scale);
+                      currentHeight = Math.round(currentHeight * scale);
                   } else {
-                      high = mid; // Need to reduce quality
+                    // Reduce quality
+                    quality -= 0.1;
                   }
               }
-              if (bestUrl && bestBlob) {
-                return { url: bestUrl, blob: bestBlob };
-              }
-              return null;
-          }
-          
-          const mainCanvas = document.createElement('canvas');
-          const mainCtx = mainCanvas.getContext('2d');
-          if (!mainCtx) throw new Error('Could not get canvas context');
-          mainCanvas.width = img.width;
-          mainCanvas.height = img.height;
-          mainCtx.drawImage(img, 0, 0);
-
-          let result = await findBestQuality(mainCanvas);
-
-          // Stage 2: If still too big, reduce dimensions and re-run quality search
-          if (!result) {
-              const tempCanvas = document.createElement('canvas');
-              const tempCtx = tempCanvas.getContext('2d');
-              if (!tempCtx) throw new Error('Could not get canvas context');
-
-              // Reduce dimensions in steps (90%, 80%, etc.)
-              for (let scale = 0.9; scale > 0.1 && !result; scale -= 0.1) {
-                  tempCanvas.width = Math.round(img.width * scale);
-                  tempCanvas.height = Math.round(img.height * scale);
-                  tempCtx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
-                  result = await findBestQuality(tempCanvas);
+              // Ensure quality and dimensions are within valid ranges
+              quality = Math.max(0.1, Math.min(1, quality));
+              if(currentWidth < 1 || currentHeight < 1) {
+                break;
               }
           }
-          
-          if (!result) {
-              throw new Error(`Could not resize image below ${targetSize}${targetUnit}. Please try a larger target size.`);
-          }
 
-          resizedDataUrl = result.url;
-          finalBlob = result.blob;
+          if (!resizedDataUrl || !finalBlob) {
+            throw new Error(`Could not resize image below ${targetSize}${targetUnit}. Please try a larger target size or a different image.`);
+          }
 
           setResizedImage(resizedDataUrl);
           toast({
@@ -141,8 +130,8 @@ export function ImageResize({ onBack, title }: ToolProps) {
       } finally {
           setIsProcessing(false);
       }
-    }, 50); // A small delay is enough to free up the main thread
-  };
+    }, 10); // A very small delay to free up the main thread for UI update
+  }, [file, targetSize, targetUnit, outputExtension, toast]);
   
   const handleDownload = () => {
     if (!resizedImage || !file) return;
@@ -161,6 +150,13 @@ export function ImageResize({ onBack, title }: ToolProps) {
   const handleClear = () => {
     setFile(null);
     setResizedImage(null);
+    setIsProcessing(false);
+  }
+
+  const handleFileSelect = (f: File | null) => {
+    setFile(f);
+    setResizedImage(null);
+    setIsProcessing(false);
   }
 
   return (
@@ -171,10 +167,15 @@ export function ImageResize({ onBack, title }: ToolProps) {
         </CardHeader>
         <CardContent className="space-y-6">
           {!file ? (
-             <FileUpload onFileSelect={(f) => { setFile(f); setResizedImage(null);}} acceptedFileTypes={['image/jpeg', 'image/png', 'image/webp']} />
+             <FileUpload onFileSelect={handleFileSelect} acceptedFileTypes={['image/jpeg', 'image/png', 'image/webp']} />
           ) : (
             <div className="flex flex-col items-center gap-4">
-              {isProcessing && <Loader2 className="h-16 w-16 animate-spin text-primary" />}
+              {isProcessing && (
+                <div className="flex flex-col items-center justify-center gap-4 p-8">
+                  <Loader2 className="h-16 w-16 animate-spin text-primary" />
+                  <p className="text-muted-foreground">Resizing, please wait...</p>
+                </div>
+              )}
               {!isProcessing && resizedImage && (
                 <>
                     <Image src={resizedImage} alt="Resized image" width={400} height={400} className="rounded-md object-contain" />
@@ -201,8 +202,11 @@ export function ImageResize({ onBack, title }: ToolProps) {
                     </div>
                 </>
               )}
-               {!resizedImage && !isProcessing && (
+               {!isProcessing && !resizedImage && file && (
                  <div className="w-full space-y-4">
+                    <div className="relative w-full max-w-xs mx-auto aspect-square">
+                        <Image src={URL.createObjectURL(file)} alt="Original image preview" layout="fill" className="rounded-md object-contain" />
+                    </div>
                    <h3 className="font-medium">Resize Options</h3>
                    <div className="space-y-2">
                      <Label htmlFor="size">Target Size</Label>
@@ -225,13 +229,13 @@ export function ImageResize({ onBack, title }: ToolProps) {
           )}
         </CardContent>
         <CardFooter className="flex-col gap-2">
+          {file && !resizedImage && (
+            <Button className="w-full" size="lg" onClick={handleResize} disabled={isProcessing}>
+              {isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Resizing...</> : 'Resize Image'}
+            </Button>
+          )}
           {file && (
-            <>
-              <Button className="w-full" size="lg" onClick={handleResize} disabled={isProcessing || !!resizedImage}>
-                {isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Resizing...</> : 'Resize Image'}
-              </Button>
-              <Button variant="outline" className="w-full" size="lg" onClick={handleClear} disabled={isProcessing}>Clear</Button>
-            </>
+             <Button variant="outline" className="w-full" size="lg" onClick={handleClear} disabled={isProcessing}>Clear</Button>
           )}
         </CardFooter>
       </Card>
