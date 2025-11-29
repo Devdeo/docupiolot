@@ -45,16 +45,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="quality">Quality (DPI)</Label>
-                <Select defaultValue="144" disabled={!file}>
-                    <SelectTrigger id="quality">
-                        <SelectValue placeholder="Select quality" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="220">High Quality (220 DPI)</SelectItem>
-                        <SelectItem value="144">Good Quality (144 DPI)</SelectItem>
-                        <SelectItem value="72">Low Quality (72 DPI)</SelectItem>
-                    </SelectContent>
-                </Select>
+                <Input id="quality" placeholder="e.g., 144" type="number" defaultValue="144" disabled={!file} />
               </div>
             </div>
           </div>

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FileUpload } from '../file-upload';
 import { ToolContainer } from './tool-container';
-import { fileToDataUrl } from '@/lib/image-utils';
+import { fileToDataUrl, dataUrlToBlob } from '@/lib/image-utils';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -21,6 +21,9 @@ export function ImageResize({ onBack, title }: ToolProps) {
   const [file, setFile] = useState<File | null>(null);
   const [resizedImage, setResizedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [targetSize, setTargetSize] = useState('2');
+  const [targetUnit, setTargetUnit] = useState('MB');
+  const [dpi, setDpi] = useState('150');
   const { toast } = useToast();
 
   const handleResize = async () => {
@@ -38,11 +41,10 @@ export function ImageResize({ onBack, title }: ToolProps) {
 
     try {
         const photoDataUri = await fileToDataUrl(file);
-        // Placeholder logic as resizing to a specific file size client-side is complex.
-        // This just redraws the image. A real implementation would involve iterative compression.
+        
         const img = document.createElement('img');
         
-        img.onload = () => {
+        img.onload = async () => {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             
@@ -50,18 +52,32 @@ export function ImageResize({ onBack, title }: ToolProps) {
                 throw new Error('Could not get canvas context');
             }
 
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx.drawImage(img, 0, 0);
+            const currentDpi = parseInt(dpi, 10) || 150;
+            const scale = currentDpi / 72; // Assume original is 72 dpi screen default
 
-            // In a real scenario, you'd use canvas.toBlob with a quality parameter in a loop
-            // to try and get close to the target size. For this prototype, we just return the image.
-            const resizedDataUrl = canvas.toDataURL(file.type, 0.9); // 0.9 is quality
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+            let quality = 0.9;
+            let resizedDataUrl = canvas.toDataURL(file.type, quality);
+            let blob = await dataUrlToBlob(resizedDataUrl);
+
+            const targetBytes = (parseFloat(targetSize) || 2) * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
+            
+            // Iterative resizing to get closer to target size (simple version)
+            let iterations = 10;
+            while (blob.size > targetBytes && quality > 0.1 && iterations > 0) {
+              quality -= 0.1;
+              resizedDataUrl = canvas.toDataURL(file.type, quality);
+              blob = await dataUrlToBlob(resizedDataUrl);
+              iterations--;
+            }
 
             setResizedImage(resizedDataUrl);
             toast({
                 title: 'Image Resized',
-                description: 'Your image has been successfully resized.',
+                description: `Your image has been resized to approximately ${(blob.size / 1024 / 1024).toFixed(2)} MB.`,
             });
             setIsProcessing(false);
         };
@@ -127,8 +143,8 @@ export function ImageResize({ onBack, title }: ToolProps) {
                <div className="space-y-2">
                 <Label htmlFor="size">Target Size</Label>
                 <div className="flex gap-2">
-                    <Input id="size" placeholder="e.g., 5" type="number" className="w-full" disabled={!file || isProcessing}/>
-                    <Select defaultValue="MB" disabled={!file || isProcessing}>
+                    <Input id="size" value={targetSize} onChange={(e) => setTargetSize(e.target.value)} placeholder="e.g., 2" type="number" className="w-full" disabled={!file || isProcessing}/>
+                    <Select value={targetUnit} onValueChange={setTargetUnit} disabled={!file || isProcessing}>
                         <SelectTrigger className="w-[80px]">
                             <SelectValue />
                         </SelectTrigger>
@@ -141,16 +157,7 @@ export function ImageResize({ onBack, title }: ToolProps) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="quality">Quality (DPI)</Label>
-                <Select defaultValue="150" disabled={!file || isProcessing}>
-                    <SelectTrigger id="quality">
-                        <SelectValue placeholder="Select quality" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="300">High Quality (300 DPI)</SelectItem>
-                        <SelectItem value="150">Good Quality (150 DPI)</SelectItem>
-                        <SelectItem value="72">Low Quality (72 DPI)</SelectItem>
-                    </SelectContent>
-                </Select>
+                <Input id="quality" value={dpi} onChange={(e) => setDpi(e.target.value)} placeholder="e.g., 150" type="number" disabled={!file || isProcessing} />
               </div>
             </div>
           </div>
