@@ -8,7 +8,7 @@ import { FileUpload } from '../file-upload';
 import { ToolContainer } from './tool-container';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, PDFName, PDFDict } from 'pdf-lib';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { dataUrlToBlob } from '@/lib/image-utils';
 
@@ -54,23 +54,20 @@ export function PdfResize({ onBack, title }: ToolProps) {
 
       // This is an aggressive compression attempt.
       // We will iterate over all images and try to re-compress them.
-      const imageObjects = pdfDoc.context.indirectObjects.entries()
-        .filter(([, obj]) => obj.get('Subtype')?.toString() === '/Image');
+      const imageObjects = pdfDoc.context.indirectObjects.entries();
       
       let imageCount = 0;
-      for (const [ref, obj] of imageObjects) {
-          try {
-              const image = await pdfDoc.embedJpg(await obj.get('D').asBytes());
-              const imageRef = pdfDoc.context.indirectObjects.get(ref.toString());
-              if(imageRef) {
-                // This is a very simplified re-compression attempt
-                // The effectiveness can vary wildly based on original PDF content
-                // A more robust solution requires rendering pages, which is not feasible client-side without huge libraries
-              }
-              imageCount++;
-          } catch(e) {
-              console.warn("Could not process an image in the PDF, it might not be a JPG/PNG or might be corrupted.", e);
-              continue;
+      for (const [, obj] of imageObjects) {
+          if (obj instanceof PDFDict && obj.get(PDFName.of('Subtype')) === PDFName.of('Image')) {
+            try {
+                // This is a placeholder for a more complex image extraction and re-compression logic.
+                // True re-compression would require a rendering step which is too heavy for client-side.
+                // This simplified approach re-saves the doc which can sometimes optimize it.
+                imageCount++;
+            } catch(e) {
+                console.warn("Could not process an image in the PDF, it might not be a JPG/PNG or might be corrupted.", e);
+                continue;
+            }
           }
       }
 
@@ -91,11 +88,11 @@ export function PdfResize({ onBack, title }: ToolProps) {
           title: 'Partial Compression',
           description: `The PDF was compressed, but is still larger than the target. New size: ${(pdfBytes.length / 1024 / 1024).toFixed(2)} MB.`,
         });
-      } else if (pdfBytes.length > existingPdfBytes.byteLength) {
+      } else if (pdfBytes.length >= existingPdfBytes.byteLength) {
          toast({
           variant: 'destructive',
-          title: 'Compression Failed',
-          description: `The PDF could not be compressed. It may already be optimized. New size: ${(pdfBytes.length / 1024 / 1024).toFixed(2)} MB.`,
+          title: 'Compression Limited',
+          description: `The PDF could not be compressed further. It may already be optimized. New size: ${(pdfBytes.length / 1024 / 1024).toFixed(2)} MB.`,
         });
       } else {
         toast({
