@@ -170,38 +170,41 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
     if (dragging === 'pan') {
       setPosition(p => ({ x: p.x + dx, y: p.y + dy }));
     } else if (dragging === 'resize' && resizeHandle) {
-        setCrop(c => {
-            const newCrop = { ...c };
-            const aspectRatio = getAspectRatio();
-            
-            if (resizeHandle.includes('right')) newCrop.width += dx;
-            if (resizeHandle.includes('left')) {
-                newCrop.x += dx;
-                newCrop.width -= dx;
-            }
-            if (resizeHandle.includes('bottom')) newCrop.height += dy;
-            if (resizeHandle.includes('top')) {
-                newCrop.y += dy;
-                newCrop.height -= dy;
-            }
+      setCrop(c => {
+          let { x, y, width, height } = c;
+          const aspectRatio = getAspectRatio();
 
-            // Maintain aspect ratio
-            if (resizeHandle.includes('left') || resizeHandle.includes('right')) {
-                const newHeight = newCrop.width / aspectRatio;
-                if (resizeHandle.includes('top')) {
-                    newCrop.y += newCrop.height - newHeight;
-                }
-                newCrop.height = newHeight;
-            } else {
-                const newWidth = newCrop.height * aspectRatio;
-                if (resizeHandle.includes('left')) {
-                    newCrop.x += newCrop.width - newWidth;
-                }
-                newCrop.width = newWidth;
+          if (resizeHandle.includes('right')) {
+            width += dx;
+          }
+          if (resizeHandle.includes('left')) {
+            x += dx;
+            width -= dx;
+          }
+          if (resizeHandle.includes('bottom')) {
+            height += dy;
+          }
+          if (resizeHandle.includes('top')) {
+            y += dy;
+            height -= dy;
+          }
+          
+          if (resizeHandle.includes('left') || resizeHandle.includes('right')) {
+            const newHeight = width / aspectRatio;
+            if (resizeHandle.includes('top')) {
+              y += height - newHeight;
             }
-            
-            return newCrop;
-        });
+            height = newHeight;
+          } else if (resizeHandle.includes('top') || resizeHandle.includes('bottom')) {
+            const newWidth = height * aspectRatio;
+            if (resizeHandle.includes('left')) {
+              x += width - newWidth;
+            }
+            width = newWidth;
+          }
+
+          return { x, y, width, height };
+      });
     }
     setDragStart({ x: offsetX, y: offsetY });
   };
@@ -463,9 +466,9 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
              <div className="w-full text-center space-y-4">
                  <p className="text-sm text-muted-foreground">Your photos are ready for printing on an A4 sheet.</p>
                  <div className="relative w-full aspect-[1/1.414] bg-white rounded-md overflow-hidden flex items-center justify-center border shadow-sm">
-                    {finalLayout && (
+                    {finalLayout ? (
                       <Image src={finalLayout} alt="Final Layout Preview" fill className="object-contain p-1" />
-                    )}
+                    ) : <Loader2 className='h-8 w-8 animate-spin' /> }
                  </div>
                  <p className='text-xs text-muted-foreground'>This is a preview. The final PDF will contain a full sheet of photos.</p>
              </div>
@@ -507,7 +510,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
             </Button>
           )}
            {currentStep === 3 && (
-            <Button onClick={downloadPdf} disabled={isProcessing}>
+            <Button onClick={downloadPdf} disabled={isProcessing || !finalLayout}>
                 <Download className="mr-2 h-4 w-4" />
                 Download PDF
             </Button>
@@ -517,4 +520,3 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
     </ToolContainer>
   );
 }
-
