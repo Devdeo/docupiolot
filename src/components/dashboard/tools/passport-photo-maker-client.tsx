@@ -45,6 +45,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState<'pan' | 'resize' | null>(null);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   
   // Editing state
@@ -140,6 +141,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const { offsetX, offsetY } = e.nativeEvent;
     const handleSize = 10;
+    setDragStart({ x: offsetX, y: offsetY });
     
     const handles: {[key: string]: number[]} = {
         'top-left': [crop.x, crop.y],
@@ -149,8 +151,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
     };
 
     for(const [handle, [hx, hy]] of Object.entries(handles)) {
-        if (offsetX > hx - handleSize && offsetX < hx + handleSize &&
-            offsetY > hy - handleSize && offsetY < hy + handleSize) {
+        if (Math.abs(offsetX - hx) < handleSize && Math.abs(offsetY - hy) < handleSize) {
             setDragging('resize');
             setResizeHandle(handle);
             return;
@@ -162,47 +163,47 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
   
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!dragging) return;
-    const { movementX, movementY } = e;
-    const aspectRatio = getAspectRatio();
+    const { offsetX, offsetY } = e.nativeEvent;
+    const dx = offsetX - dragStart.x;
+    const dy = offsetY - dragStart.y;
 
     if (dragging === 'pan') {
-      setPosition(p => ({ x: p.x + movementX, y: p.y + movementY }));
+      setPosition(p => ({ x: p.x + dx, y: p.y + dy }));
     } else if (dragging === 'resize' && resizeHandle) {
         setCrop(c => {
-            let { x, y, width, height } = c;
+            const newCrop = { ...c };
+            const aspectRatio = getAspectRatio();
             
-            if (resizeHandle.includes('right')) {
-                width += movementX;
-            }
+            if (resizeHandle.includes('right')) newCrop.width += dx;
             if (resizeHandle.includes('left')) {
-                width -= movementX;
-                x += movementX;
+                newCrop.x += dx;
+                newCrop.width -= dx;
             }
-            if (resizeHandle.includes('bottom')) {
-                height = width / aspectRatio;
+            if (resizeHandle.includes('bottom')) newCrop.height += dy;
+            if (resizeHandle.includes('top')) {
+                newCrop.y += dy;
+                newCrop.height -= dy;
             }
-             if (resizeHandle.includes('top')) {
-                const heightChange = (width - c.width) / aspectRatio;
-                height = width / aspectRatio;
-                y -= heightChange - (height - c.height);
-            }
-            
-            if (resizeHandle.includes('right') || resizeHandle.includes('left')) {
-                height = width / aspectRatio;
+
+            // Maintain aspect ratio
+            if (resizeHandle.includes('left') || resizeHandle.includes('right')) {
+                const newHeight = newCrop.width / aspectRatio;
+                if (resizeHandle.includes('top')) {
+                    newCrop.y += newCrop.height - newHeight;
+                }
+                newCrop.height = newHeight;
             } else {
-                 width = height * aspectRatio;
+                const newWidth = newCrop.height * aspectRatio;
+                if (resizeHandle.includes('left')) {
+                    newCrop.x += newCrop.width - newWidth;
+                }
+                newCrop.width = newWidth;
             }
-
-             if (resizeHandle.includes('top')) {
-                y = c.y + (c.height - height);
-            }
-            if (resizeHandle.includes('left')) {
-                x = c.x + (c.width - width);
-            }
-
-            return { x, y, width, height };
+            
+            return newCrop;
         });
     }
+    setDragStart({ x: offsetX, y: offsetY });
   };
 
   const handleMouseUp = () => {
@@ -254,12 +255,17 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
       const sourceWidth = crop.width / scale;
       const sourceHeight = crop.height / scale;
 
-      dCanvas.width = sourceWidth;
-      dCanvas.height = sourceHeight;
+      const selectedCountry = countries[country];
+      const targetWidth = selectedCountry.dpi * selectedCountry.width / (selectedCountry.unit === 'mm' ? 25.4 : 1);
+      const targetHeight = selectedCountry.dpi * selectedCountry.height / (selectedCountry.unit === 'mm' ? 25.4 : 1);
+
+
+      dCanvas.width = targetWidth;
+      dCanvas.height = targetHeight;
       const dCtx = dCanvas.getContext('2d');
       if (!dCtx) return;
 
-      dCtx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, sourceWidth, sourceHeight);
+      dCtx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, targetWidth, targetHeight);
       
       setCroppedImage(dCanvas.toDataURL());
     }
@@ -287,7 +293,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
   const generateFinalLayout = () => {
     const editCanvas = editCanvasRef.current;
     if (!editCanvas) return;
-    const editedImageDataUrl = editCanvas.toDataURL();
+    const editedImageDataUrl = editCanvas.toDataURL('image/jpeg');
     setFinalEditedImage(editedImageDataUrl);
 
     const img = new window.Image();
@@ -437,7 +443,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
         return (
           <div className='w-full text-center space-y-4'>
             <p className="text-sm text-muted-foreground">Adjust brightness and contrast.</p>
-            <div className="relative w-full aspect-square bg-muted rounded-md overflow-hidden flex items-center justify-center">
+            <div className="relative w-full max-w-[350px] aspect-auto bg-muted rounded-md overflow-hidden flex items-center justify-center mx-auto">
               <canvas ref={editCanvasRef} className="max-w-full max-h-full object-contain" />
             </div>
             <div className='space-y-4 text-left px-4'>
@@ -458,7 +464,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
                  <p className="text-sm text-muted-foreground">Your photos are ready for printing on an A4 sheet.</p>
                  <div className="relative w-full aspect-[1/1.414] bg-white rounded-md overflow-hidden flex items-center justify-center border shadow-sm">
                     {finalLayout && (
-                      <Image src={finalLayout} alt="Final Layout Preview" fill className="object-contain p-4" />
+                      <Image src={finalLayout} alt="Final Layout Preview" fill className="object-contain p-1" />
                     )}
                  </div>
                  <p className='text-xs text-muted-foreground'>This is a preview. The final PDF will contain a full sheet of photos.</p>
@@ -511,3 +517,4 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
     </ToolContainer>
   );
 }
+
