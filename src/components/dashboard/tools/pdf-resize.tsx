@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,7 +23,15 @@ export function PdfResize({ onBack, title }: ToolProps) {
   const [targetSize, setTargetSize] = useState('5');
   const [targetUnit, setTargetUnit] = useState('MB');
   const [dpi, setDpi] = useState('144');
+  const [outputFilename, setOutputFilename] = useState('');
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (file) {
+      const originalName = file.name.substring(0, file.name.lastIndexOf('.'));
+      setOutputFilename(`desized-${originalName}`);
+    }
+  }, [file]);
 
   const handleResize = async () => {
     if (!file) {
@@ -55,11 +63,10 @@ export function PdfResize({ onBack, title }: ToolProps) {
       const targetBytes = (parseFloat(targetSize) || 5) * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
 
       // This is a simplification. Real compression to a target size is non-trivial.
-      if (pdfBytes.length > targetBytes) {
+      if (pdfBytes.length > existingPdfBytes.byteLength) {
          toast({
-            variant: 'destructive',
-            title: 'Compression Modest',
-            description: `Could not compress to target size. The result is ${(pdfBytes.length / 1024 / 1024).toFixed(2)} MB.`,
+            title: 'PDF Resized',
+            description: `File size may have increased slightly after processing. Result is ${(pdfBytes.length / 1024 / 1024).toFixed(2)} MB.`,
         });
       } else {
         toast({
@@ -88,7 +95,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
     const blob = new Blob([resizedPdf], { type: 'application/pdf' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `desized-${file.name}`;
+    link.download = `${outputFilename || `desized-${file.name.substring(0, file.name.lastIndexOf('.'))}`}.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -106,20 +113,27 @@ export function PdfResize({ onBack, title }: ToolProps) {
           <CardTitle>Upload Your PDF</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {!file || (resizedPdf && !isProcessing) ? (
+          {!file ? (
             <FileUpload onFileSelect={(f) => { setFile(f); setResizedPdf(null); }} acceptedFileTypes={['application/pdf']} />
           ) : (
              <div className="flex flex-col items-center gap-4 text-center">
-                {isProcessing && <Loader2 className="h-16 w-16 animate-spin text-primary" />}
-                <p>Processing: {file?.name}</p>
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="h-16 w-16 animate-spin text-primary" />
+                    <p>Processing: {file?.name}</p>
+                  </>
+                ) : null }
+                {resizedPdf && !isProcessing && (
+                  <div className="w-full space-y-4 rounded-md border p-4">
+                      <h3 className="font-medium text-center">Download Your Resized PDF</h3>
+                       <div className="space-y-2">
+                            <Label htmlFor="filename">Filename</Label>
+                            <Input id="filename" value={outputFilename} onChange={(e) => setOutputFilename(e.target.value)} />
+                        </div>
+                      <Button onClick={handleDownload} className="w-full">Download Resized PDF</Button>
+                  </div>
+                )}
              </div>
-          )}
-          
-          {resizedPdf && !isProcessing && (
-            <div className="w-full space-y-4 rounded-md border p-4 text-center">
-                <h3 className="font-medium">Download Your Resized PDF</h3>
-                <Button onClick={handleDownload} className="w-full">Download Resized PDF</Button>
-            </div>
           )}
 
           <div className="space-y-4">
