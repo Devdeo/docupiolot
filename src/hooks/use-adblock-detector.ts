@@ -24,57 +24,42 @@ export function useAdblockDetector() {
     // A 1x1 pixel tracker from a major ad network. Very likely to be blocked.
     const remoteBaitUrl = 'https://googleads.g.doubleclick.net/pagead/viewthroughconversion/962940251/?backend=innocuous&val=1&allow_custom_scripts=true';
 
-
     async function checkAdBlock() {
       if (isCancelled) return;
+      
+      let detected = false;
 
       // --- Method 1: Remote Network Request Check ---
       try {
         await fetch(new Request(remoteBaitUrl, { mode: 'no-cors', cache: 'reload' }));
       } catch (error) {
-        if (!isCancelled && !adblockDetected) {
-            setAdblockDetected(true);
-            console.warn('Adblock detected via remote network request failure.');
-        }
-        return;
+        detected = true;
+        console.warn('Adblock detected via remote network request failure.');
       }
 
       // --- Method 2: Local Network Request Check ---
       try {
         await fetch(new Request(localBaitUrl, { cache: 'reload' }));
       } catch (error) {
-        if (!isCancelled && !adblockDetected) {
-            setAdblockDetected(true);
-            console.warn('Adblock detected via local network request failure.');
-        }
-        return;
+        detected = true;
+        console.warn('Adblock detected via local network request failure.');
       }
 
-      // --- Method 3: DOM Element Check (runs after a delay) ---
-      setTimeout(() => {
-        if (isCancelled) return;
-
-        const baitElement = document.getElementById(baitElementId);
-        
-        if (!baitElement || baitElement.offsetHeight === 0 || window.getComputedStyle(baitElement).display === 'none') {
-          if (!isCancelled && !adblockDetected) {
-            setAdblockDetected(true);
-            console.warn('Adblock detected via DOM element modification.');
-          }
-          return;
-        }
-
-        // If all checks pass, we assume no ad blocker is active for this cycle.
-        if (!isCancelled && adblockDetected) {
-          setAdblockDetected(false);
-        }
-
-      }, 100);
+      // --- Method 3: DOM Element Check (runs after a short delay) ---
+      const baitElement = document.getElementById(baitElementId);
+      if (!baitElement || baitElement.offsetHeight === 0 || window.getComputedStyle(baitElement).display === 'none') {
+        detected = true;
+        console.warn('Adblock detected via DOM element modification.');
+      }
+      
+      if (!isCancelled) {
+          setAdblockDetected(detected);
+      }
     }
     
     // We run the check on an interval to detect if the user enables/disables the adblocker
     // while on the site.
-    const intervalId = setInterval(checkAdBlock, 3000);
+    const intervalId = setInterval(checkAdBlock, 1500);
     
     // Initial check
     checkAdBlock();
@@ -84,7 +69,7 @@ export function useAdblockDetector() {
       isCancelled = true;
       clearInterval(intervalId);
     };
-  }, [adblockDetected]);
+  }, []);
 
   return adblockDetected;
 }
