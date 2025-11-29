@@ -84,7 +84,7 @@ export default function PdfResizeClient({ onBack, title }: ToolProps) {
         for (let i = 0; i < pageCount; i++) {
             setProgressMessage(`Converting page ${i + 1} of ${pageCount} to image`);
             const page = await pdf.getPage(i + 1);
-            const viewport = page.getViewport({ scale: 2.0 });
+            const viewport = page.getViewport({ scale: 2.0 }); // High initial scale
             
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
@@ -109,7 +109,7 @@ export default function PdfResizeClient({ onBack, title }: ToolProps) {
         let totalImageSize = Infinity;
         let quality = 0.9;
         let scale = 1.0;
-        const MAX_ITERATIONS = 50;
+        const MAX_ITERATIONS = 50; // Increased iterations
 
         for (let i = 0; i < MAX_ITERATIONS && totalImageSize > targetBytes; i++) {
           totalImageSize = 0;
@@ -141,12 +141,12 @@ export default function PdfResizeClient({ onBack, title }: ToolProps) {
 
           if (totalImageSize > targetBytes) {
              if (quality > 0.1) {
-                quality -= 0.05;
+                quality -= 0.05; // Reduce quality first
              } else if (scale > 0.2) {
-                scale -= 0.05;
+                scale -= 0.05; // Then reduce scale
                 quality = 0.9; // Reset quality when scaling down
              } else {
-                quality -= 0.01;
+                quality -= 0.01; // Final desperate quality reduction
              }
              if (quality < 0) quality = 0;
           }
@@ -161,11 +161,20 @@ export default function PdfResizeClient({ onBack, title }: ToolProps) {
         }
 
         const finalPdfBytes = await newPdfDoc.save();
+        
+        if (finalPdfBytes.length > targetBytes * 1.1) { // Add a 10% tolerance
+             toast({
+                variant: "destructive",
+                title: 'Target size not met',
+                description: `Could only compress to ${formatBytes(finalPdfBytes.length)}. Please try a larger target size.`,
+            });
+        } else {
+            toast({
+                title: 'Compression Successful',
+                description: `Final PDF size: ${formatBytes(finalPdfBytes.length)}.`,
+            });
+        }
 
-        toast({
-            title: 'Compression Successful',
-            description: `Final PDF size: ${formatBytes(finalPdfBytes.length)}.`,
-        });
 
         setResizedPdf(finalPdfBytes);
         setResizedSize(finalPdfBytes.length);
@@ -284,5 +293,3 @@ export default function PdfResizeClient({ onBack, title }: ToolProps) {
     </ToolContainer>
   );
 }
-
-    
