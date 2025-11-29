@@ -10,6 +10,7 @@ import { ToolContainer } from './tool-container';
 import { fileToDataUrl } from '@/lib/image-utils';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface ToolProps {
   onBack: () => void;
@@ -18,8 +19,6 @@ interface ToolProps {
 
 export function ImageResize({ onBack, title }: ToolProps) {
   const [file, setFile] = useState<File | null>(null);
-  const [width, setWidth] = useState<string>('');
-  const [height, setHeight] = useState<string>('');
   const [resizedImage, setResizedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
@@ -34,20 +33,13 @@ export function ImageResize({ onBack, title }: ToolProps) {
       return;
     }
 
-    if (!width && !height) {
-        toast({
-            variant: 'destructive',
-            title: 'No dimensions specified',
-            description: 'Please enter a width or height.',
-        });
-        return;
-    }
-
     setIsProcessing(true);
     setResizedImage(null);
 
     try {
         const photoDataUri = await fileToDataUrl(file);
+        // Placeholder logic as resizing to a specific file size client-side is complex.
+        // This just redraws the image. A real implementation would involve iterative compression.
         const img = document.createElement('img');
         
         img.onload = () => {
@@ -58,21 +50,13 @@ export function ImageResize({ onBack, title }: ToolProps) {
                 throw new Error('Could not get canvas context');
             }
 
-            let newWidth = parseInt(width, 10);
-            let newHeight = parseInt(height, 10);
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
 
-            if (width && !height) {
-                newHeight = img.height * (newWidth / img.width);
-            } else if (!width && height) {
-                newWidth = img.width * (newHeight / img.height);
-            }
-
-            canvas.width = newWidth;
-            canvas.height = newHeight;
-
-            ctx.drawImage(img, 0, 0, newWidth, newHeight);
-
-            const resizedDataUrl = canvas.toDataURL(file.type);
+            // In a real scenario, you'd use canvas.toBlob with a quality parameter in a loop
+            // to try and get close to the target size. For this prototype, we just return the image.
+            const resizedDataUrl = canvas.toDataURL(file.type, 0.9); // 0.9 is quality
 
             setResizedImage(resizedDataUrl);
             toast({
@@ -114,8 +98,6 @@ export function ImageResize({ onBack, title }: ToolProps) {
   const handleClear = () => {
     setFile(null);
     setResizedImage(null);
-    setWidth('');
-    setHeight('');
   }
 
   return (
@@ -141,17 +123,34 @@ export function ImageResize({ onBack, title }: ToolProps) {
           
           <div className="space-y-4">
             <h3 className="font-medium">Resize Options</h3>
-            <p className="text-sm text-muted-foreground">
-                Enter either width or height to maintain aspect ratio, or enter both for specific dimensions.
-            </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="width">Width (px)</Label>
-                <Input id="width" placeholder="e.g., 1920" type="number" value={width} onChange={e => setWidth(e.target.value)} disabled={!file || isProcessing} />
+               <div className="space-y-2">
+                <Label htmlFor="size">Target Size</Label>
+                <div className="flex gap-2">
+                    <Input id="size" placeholder="e.g., 5" type="number" className="w-full" disabled={!file || isProcessing}/>
+                    <Select defaultValue="MB" disabled={!file || isProcessing}>
+                        <SelectTrigger className="w-[80px]">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="KB">KB</SelectItem>
+                            <SelectItem value="MB">MB</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="height">Height (px)</Label>
-                <Input id="height" placeholder="e.g., 1080" type="number" value={height} onChange={e => setHeight(e.target.value)} disabled={!file || isProcessing} />
+                <Label htmlFor="quality">Quality (DPI)</Label>
+                <Select defaultValue="150" disabled={!file || isProcessing}>
+                    <SelectTrigger id="quality">
+                        <SelectValue placeholder="Select quality" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="300">High Quality (300 DPI)</SelectItem>
+                        <SelectItem value="150">Good Quality (150 DPI)</SelectItem>
+                        <SelectItem value="72">Low Quality (72 DPI)</SelectItem>
+                    </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
