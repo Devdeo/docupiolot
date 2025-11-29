@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FileUpload } from '../file-upload';
 import { ToolContainer } from './tool-container';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Download, ChevronLeft, ChevronRight, PlusCircle, Trash2 } from 'lucide-react';
+import { Loader2, Download, ChevronLeft, ChevronRight, PlusCircle, Trash2, Minus, Plus } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { PDFDocument, rgb } from 'pdf-lib';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -76,7 +76,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
   const [imageCount, setImageCount] = useState(8);
   const [addBorder, setAddBorder] = useState(false);
   const [borderColor, setBorderColor] = useState('#000000');
-  const [imageSpacing, setImageSpacing] = useState([4]);
+  const [imageSpacing, setImageSpacing] = useState(4);
   
   const { toast } = useToast();
 
@@ -376,7 +376,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
         photoHeightPt *= 72;
     }
     
-    const spacing = imageSpacing[0];
+    const spacing = imageSpacing;
     const photoAndSpaceWidth = photoWidthPt + spacing;
     const photoAndSpaceHeight = photoHeightPt + spacing;
 
@@ -442,7 +442,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
             photoHeightPt *= 72;
         }
         
-        const spacing = imageSpacing[0];
+        const spacing = imageSpacing;
         const photoAndSpaceWidth = photoWidthPt + spacing;
         const photoAndSpaceHeight = photoHeightPt + spacing;
 
@@ -498,6 +498,14 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
     setEditedImages(prev => prev.filter(img => img.id !== id));
   }
   
+  const handleImageCountChange = (amount: number) => {
+    setImageCount(prev => Math.max(1, Math.min(36, prev + amount)));
+  };
+
+  const handleImageSpacingChange = (amount: number) => {
+    setImageSpacing(prev => Math.max(0, Math.min(20, prev + amount)));
+  };
+
   const renderStep = () => {
     switch (currentStep) {
       case 0:
@@ -576,14 +584,25 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
                     </div>
                     <div className='space-y-4 text-left p-2 border rounded-md'>
                         <h4 className='font-medium text-center'>Layout Options</h4>
+                        
                         <div className="space-y-2">
-                            <Label htmlFor="image-count">Number of Photos ({imageCount})</Label>
-                            <Slider id="image-count" value={[imageCount]} onValueChange={(v) => setImageCount(v[0])} min={1} max={36} step={1} />
+                          <Label>Number of Photos</Label>
+                          <div className="flex items-center justify-center gap-2">
+                            <Button variant="outline" size="icon" onClick={() => handleImageCountChange(-1)} disabled={imageCount <= 1}><Minus className="h-4 w-4" /></Button>
+                            <span className="w-12 text-center font-medium">{imageCount}</span>
+                            <Button variant="outline" size="icon" onClick={() => handleImageCountChange(1)} disabled={imageCount >= 36}><Plus className="h-4 w-4" /></Button>
+                          </div>
                         </div>
+
                         <div className="space-y-2">
-                            <Label htmlFor="image-spacing">Space Between Photos ({imageSpacing[0]}pt)</Label>
-                            <Slider id="image-spacing" value={imageSpacing} onValueChange={setImageSpacing} min={0} max={20} step={1} />
+                            <Label>Space Between Photos</Label>
+                             <div className="flex items-center justify-center gap-2">
+                                <Button variant="outline" size="icon" onClick={() => handleImageSpacingChange(-1)} disabled={imageSpacing <= 0}><Minus className="h-4 w-4" /></Button>
+                                <span className="w-12 text-center font-medium">{imageSpacing}pt</span>
+                                <Button variant="outline" size="icon" onClick={() => handleImageSpacingChange(1)} disabled={imageSpacing >= 20}><Plus className="h-4 w-4" /></Button>
+                            </div>
                         </div>
+
                          <div className="flex items-center space-x-2">
                             <Checkbox id="add-border" checked={addBorder} onCheckedChange={(checked) => setAddBorder(checked as boolean)} />
                             <Label htmlFor="add-border">Add Border</Label>
