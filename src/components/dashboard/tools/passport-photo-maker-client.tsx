@@ -13,6 +13,8 @@ import { Slider } from '@/components/ui/slider';
 import { PDFDocument, rgb } from 'pdf-lib';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 
 interface ToolProps {
   onBack: () => void;
