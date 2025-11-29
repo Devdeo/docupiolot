@@ -50,32 +50,17 @@ export function PdfResize({ onBack, title }: ToolProps) {
       const existingPdfBytes = await file.arrayBuffer();
       const pdfDoc = await PDFDocument.load(existingPdfBytes);
       
-      // This is a placeholder for actual DPI-based resizing which is very complex with PDFs.
-      // pdf-lib doesn't directly support changing image DPIs within a PDF in a simple way.
-      // A real implementation would require iterating through PDF objects, finding images,
-      // downscaling them, and replacing them.
-      // For now, we will just re-save the PDF which can sometimes reduce size.
-      // We will add a small delay to simulate processing.
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
+      // Re-saving the PDF with pdf-lib can often reduce file size
+      // by optimizing the document structure. Precise compression to a target
+      // size is very complex on the client side. This provides a "best effort"
+      // compression.
       const pdfBytes = await pdfDoc.save();
-      
-      const targetBytes = (parseFloat(targetSize) || 5) * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
-
-      // This is a simplification. Real compression to a target size is non-trivial.
-      if (pdfBytes.length > existingPdfBytes.byteLength) {
-         toast({
-            title: 'PDF Resized',
-            description: `File size may have increased slightly after processing. Result is ${(pdfBytes.length / 1024 / 1024).toFixed(2)} MB.`,
-        });
-      } else {
-        toast({
-            title: 'PDF Resized',
-            description: `Your PDF has been resized to ${(pdfBytes.length / 1024 / 1024).toFixed(2)} MB.`,
-        });
-      }
 
       setResizedPdf(pdfBytes);
+      toast({
+          title: 'PDF Processed',
+          description: `Your PDF has been re-processed. New size is ${(pdfBytes.length / 1024 / 1024).toFixed(2)} MB.`,
+      });
 
     } catch (error) {
       console.error(error);
