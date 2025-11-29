@@ -79,9 +79,10 @@ export function ImageResize({ onBack, title }: ToolProps) {
           let bestQuality = 0.1;
           let resizedDataUrl: string | undefined;
           let finalBlob: Blob | undefined;
+          const precision = 1000; // Stop when size is within 1KB of target.
 
           // Perform a few iterations to find the best quality
-          for (let i = 0; i < 10; i++) {
+          for (let i = 0; i < 15; i++) { // Increased iterations for more precision
               const mid = (low + high) / 2;
               const currentDataUrl = canvas.toDataURL(outputMimeType, mid);
               const currentBlob = await dataUrlToBlob(currentDataUrl);
@@ -94,12 +95,22 @@ export function ImageResize({ onBack, title }: ToolProps) {
               } else {
                   high = mid; // Need to reduce quality
               }
+
+              if (finalBlob && Math.abs(targetBytes - finalBlob.size) < precision) {
+                break; // Exit if we are close enough
+              }
           }
           
-          // If we never found a suitable size, use the lowest quality result
+          // If we never found a suitable size, use the lowest quality result that was valid
           if (!resizedDataUrl) {
-            resizedDataUrl = canvas.toDataURL(outputMimeType, bestQuality);
-            finalBlob = await dataUrlToBlob(resizedDataUrl);
+            const lowestQualityUrl = canvas.toDataURL(outputMimeType, bestQuality);
+            const lowestQualityBlob = await dataUrlToBlob(lowestQualityUrl);
+            if(lowestQualityBlob.size <= targetBytes){
+                resizedDataUrl = lowestQualityUrl;
+                finalBlob = lowestQualityBlob;
+            } else {
+                throw new Error(`Could not resize image below ${targetSize}${targetUnit}. Please try a larger target size.`);
+            }
           }
           
           if (!resizedDataUrl || !finalBlob) {
@@ -108,8 +119,8 @@ export function ImageResize({ onBack, title }: ToolProps) {
 
           setResizedImage(resizedDataUrl);
           toast({
-              title: 'Image Resized',
-              description: `Your image has been resized to approximately ${(finalBlob.size / 1024 / 1024).toFixed(2)} MB.`,
+              title: 'Image Resized Successfully',
+              description: `New size: ${(finalBlob.size / 1024 / 1024).toFixed(2)} MB.`,
           });
 
       } catch (error) {
@@ -183,34 +194,33 @@ export function ImageResize({ onBack, title }: ToolProps) {
                     </div>
                 </>
               )}
-            </div>
-          )}
-          
-          {file && (
-            <div className="space-y-4">
-              <h3 className="font-medium">Resize Options</h3>
-              <div className="space-y-2">
-                <Label htmlFor="size">Target Size</Label>
-                <div className="flex gap-2">
-                    <Input id="size" value={targetSize} onChange={(e) => setTargetSize(e.target.value)} placeholder="e.g., 2" type="number" className="w-full" disabled={!file || isProcessing}/>
-                    <Select value={targetUnit} onValueChange={setTargetUnit} disabled={!file || isProcessing}>
-                        <SelectTrigger className="w-[80px]">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="KB">KB</SelectItem>
-                            <SelectItem value="MB">MB</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-              </div>
+               {!resizedImage && !isProcessing && (
+                 <div className="w-full space-y-4">
+                   <h3 className="font-medium">Resize Options</h3>
+                   <div className="space-y-2">
+                     <Label htmlFor="size">Target Size</Label>
+                     <div className="flex gap-2">
+                         <Input id="size" value={targetSize} onChange={(e) => setTargetSize(e.target.value)} placeholder="e.g., 2" type="number" className="w-full" disabled={isProcessing}/>
+                         <Select value={targetUnit} onValueChange={setTargetUnit} disabled={isProcessing}>
+                             <SelectTrigger className="w-[80px]">
+                                 <SelectValue />
+                             </SelectTrigger>
+                             <SelectContent>
+                                 <SelectItem value="KB">KB</SelectItem>
+                                 <SelectItem value="MB">MB</SelectItem>
+                             </SelectContent>
+                         </Select>
+                     </div>
+                   </div>
+                 </div>
+               )}
             </div>
           )}
         </CardContent>
         <CardFooter className="flex-col gap-2">
           {file && (
             <>
-              <Button className="w-full" size="lg" onClick={handleResize} disabled={isProcessing}>
+              <Button className="w-full" size="lg" onClick={handleResize} disabled={isProcessing || !!resizedImage}>
                 {isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Resizing...</> : 'Resize Image'}
               </Button>
               <Button variant="outline" className="w-full" size="lg" onClick={handleClear} disabled={isProcessing}>Clear</Button>
