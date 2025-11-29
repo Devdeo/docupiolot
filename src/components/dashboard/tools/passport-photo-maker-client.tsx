@@ -271,8 +271,8 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
       const { x, y } = getCoords(e.touches[0]);
       handleDragMove(x, y);
     } else if (e.touches.length === 2) {
-      const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
       if (pinchDist.current === 0) return;
+      const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
       const zoomRatio = dist / pinchDist.current;
       setScale(Math.max(0.1, initialScale.current * zoomRatio));
     }
@@ -411,10 +411,10 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
   }, [editedImages, country, imageCount, addBorder, borderColor]);
 
   useEffect(() => {
-    if (currentStep === 2) {
+    if (currentStep === 2 && editedImages.length > 0) {
       generateFinalLayout();
     }
-  }, [currentStep, generateFinalLayout]);
+  }, [currentStep, editedImages, generateFinalLayout, imageCount, addBorder, borderColor]);
 
 
   const downloadPdf = async () => {
