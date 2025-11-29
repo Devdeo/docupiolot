@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import Image from 'next/image';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileUpload } from '../file-upload';
 import { ToolContainer } from './tool-container';
+import { resizeImage, type ResizeImageInput } from '@/ai/flows/image-resize-flow';
+import { fileToDataUrl } from '@/lib/image-utils';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 interface ToolProps {
   onBack: () => void;
@@ -15,6 +20,77 @@ interface ToolProps {
 
 export function ImageResize({ onBack, title }: ToolProps) {
   const [file, setFile] = useState<File | null>(null);
+  const [width, setWidth] = useState<string>('');
+  const [height, setHeight] = useState<string>('');
+  const [dpi, setDpi] = useState<string>('');
+  const [size, setSize] = useState<string>('');
+  const [sizeUnit, setSizeUnit] = useState<'KB' | 'MB'>('MB');
+  const [resizedImage, setResizedImage] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { toast } = useToast();
+
+  const handleResize = async () => {
+    if (!file) {
+      toast({
+        variant: 'destructive',
+        title: 'No file selected',
+        description: 'Please upload an image to resize.',
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    setResizedImage(null);
+
+    try {
+      const photoDataUri = await fileToDataUrl(file);
+      
+      const input: ResizeImageInput = { photoDataUri };
+      if (width) input.width = parseInt(width, 10);
+      if (height) input.height = parseInt(height, 10);
+      if (dpi) input.dpi = parseInt(dpi, 10);
+      if (size) {
+        const sizeInMb = sizeUnit === 'KB' ? parseFloat(size) / 1024 : parseFloat(size);
+        input.size = sizeInMb;
+      }
+
+      const result = await resizeImage(input);
+      setResizedImage(result.photoDataUri);
+      toast({
+        title: 'Image Resized',
+        description: 'Your image has been successfully resized.',
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: 'destructive',
+        title: 'Error resizing image',
+        description: 'An unexpected error occurred. Please try again.',
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
+  const handleDownload = () => {
+    if (!resizedImage) return;
+    const link = document.createElement('a');
+    link.href = resizedImage;
+    const fileExtension = resizedImage.split(';')[0].split('/')[1];
+    link.download = `resized-image.${fileExtension}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  const handleClear = () => {
+    setFile(null);
+    setResizedImage(null);
+    setWidth('');
+    setHeight('');
+    setDpi('');
+    setSize('');
+  }
 
   return (
     <ToolContainer title={title} onBack={onBack}>
@@ -23,26 +99,38 @@ export function ImageResize({ onBack, title }: ToolProps) {
           <CardTitle>Upload Your Image</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <FileUpload onFileSelect={setFile} acceptedFileTypes={['image/jpeg', 'image/png', 'image/webp']} />
+          {!resizedImage && !isProcessing ? (
+             <FileUpload onFileSelect={(f) => { setFile(f); setResizedImage(null);}} acceptedFileTypes={['image/jpeg', 'image/png', 'image/webp']} />
+          ): (
+            <div className="flex flex-col items-center gap-4">
+              {isProcessing && <Loader2 className="h-16 w-16 animate-spin text-primary" />}
+              {resizedImage && (
+                <>
+                    <Image src={resizedImage} alt="Resized image" width={400} height={400} className="rounded-md object-contain" />
+                    <Button onClick={handleDownload}>Download Resized Image</Button>
+                </>
+              )}
+            </div>
+          )}
           
           <div className="space-y-4">
             <h3 className="font-medium">Resize Options</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="width">Width (px)</Label>
-                <Input id="width" placeholder="e.g., 1920" type="number" disabled={!file} />
+                <Input id="width" placeholder="e.g., 1920" type="number" value={width} onChange={e => setWidth(e.target.value)} disabled={!file || isProcessing} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="height">Height (px)</Label>
-                <Input id="height" placeholder="e.g., 1080" type="number" disabled={!file} />
+                <Input id="height" placeholder="e.g., 1080" type="number" value={height} onChange={e => setHeight(e.target.value)} disabled={!file || isProcessing} />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                <div className="space-y-2">
                 <Label htmlFor="size">Target Size</Label>
                 <div className="flex gap-2">
-                    <Input id="size" placeholder="e.g., 2" type="number" className="w-full" disabled={!file}/>
-                    <Select defaultValue="MB" disabled={!file}>
+                    <Input id="size" placeholder="e.g., 2" type="number" className="w-full" value={size} onChange={e => setSize(e.target.value)} disabled={!file || isProcessing}/>
+                    <Select defaultValue="MB" onValueChange={(v: 'KB' | 'MB') => setSizeUnit(v)} disabled={!file || isProcessing}>
                         <SelectTrigger className="w-[80px]">
                             <SelectValue />
                         </SelectTrigger>
@@ -55,15 +143,16 @@ export function ImageResize({ onBack, title }: ToolProps) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="dpi">DPI</Label>
-                <Input id="dpi" placeholder="e.g., 300" type="number" disabled={!file} />
+                <Input id="dpi" placeholder="e.g., 300" type="number" value={dpi} onChange={e => setDpi(e.target.value)} disabled={!file || isProcessing} />
               </div>
             </div>
           </div>
         </CardContent>
-        <CardFooter>
-          <Button className="w-full" size="lg" disabled={!file}>
-            Resize Image
+        <CardFooter className="gap-2">
+          <Button className="w-full" size="lg" onClick={handleResize} disabled={!file || isProcessing}>
+            {isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Resizing...</> : 'Resize Image'}
           </Button>
+           <Button variant="outline" className="w-full" size="lg" onClick={handleClear} disabled={isProcessing}>Clear</Button>
         </CardFooter>
       </Card>
     </ToolContainer>
