@@ -47,70 +47,83 @@ export function ImageResize({ onBack, title }: ToolProps) {
     setIsProcessing(true);
     setResizedImage(null);
 
-    try {
-        const photoDataUri = await fileToDataUrl(file);
-        
-        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-            const image = document.createElement('img');
-            image.onload = () => resolve(image);
-            image.onerror = () => reject(new Error('Failed to load image.'));
-            image.src = photoDataUri;
-        });
+    // Use a timeout to allow the UI to update to the processing state before the heavy work begins.
+    setTimeout(async () => {
+      try {
+          const photoDataUri = await fileToDataUrl(file);
+          
+          const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+              const image = document.createElement('img');
+              image.onload = () => resolve(image);
+              image.onerror = () => reject(new Error('Failed to load image.'));
+              image.src = photoDataUri;
+          });
 
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        
-        if (!ctx) {
-            throw new Error('Could not get canvas context');
-        }
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          if (!ctx) {
+              throw new Error('Could not get canvas context');
+          }
 
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-        let quality = 0.9;
-        let resizedDataUrl;
-        let blob;
-        const outputMimeType = `image/${outputExtension === 'jpg' ? 'jpeg' : outputExtension}`;
+          const outputMimeType = `image/${outputExtension === 'jpg' ? 'jpeg' : outputExtension}`;
+          const targetBytes = (parseFloat(targetSize) || 2) * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
 
-        const targetBytes = (parseFloat(targetSize) || 2) * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
-        
-        let iterations = 10;
-        while (iterations > 0) {
-          resizedDataUrl = canvas.toDataURL(outputMimeType, quality);
-          blob = await dataUrlToBlob(resizedDataUrl);
-          if (blob.size <= targetBytes) break;
-          quality -= 0.1;
-          if (quality <= 0.1) {
-            quality = 0.1; // Ensure we don't go below 0.1
-            resizedDataUrl = canvas.toDataURL(outputMimeType, quality);
-            blob = await dataUrlToBlob(resizedDataUrl);
-            break;
-          };
-          iterations--;
-        }
-        
-        if (!resizedDataUrl || !blob) {
-            throw new Error("Failed to resize image to target size.");
-        }
+          // --- Binary search for optimal quality ---
+          let low = 0;
+          let high = 1;
+          let bestQuality = 0.1;
+          let resizedDataUrl: string | undefined;
+          let finalBlob: Blob | undefined;
 
-        setResizedImage(resizedDataUrl);
+          // Perform a few iterations to find the best quality
+          for (let i = 0; i < 10; i++) {
+              const mid = (low + high) / 2;
+              const currentDataUrl = canvas.toDataURL(outputMimeType, mid);
+              const currentBlob = await dataUrlToBlob(currentDataUrl);
+              
+              if (currentBlob.size <= targetBytes) {
+                  bestQuality = mid;
+                  resizedDataUrl = currentDataUrl;
+                  finalBlob = currentBlob;
+                  low = mid; // Try for higher quality
+              } else {
+                  high = mid; // Need to reduce quality
+              }
+          }
+          
+          // If we never found a suitable size, use the lowest quality result
+          if (!resizedDataUrl) {
+            resizedDataUrl = canvas.toDataURL(outputMimeType, bestQuality);
+            finalBlob = await dataUrlToBlob(resizedDataUrl);
+          }
+          
+          if (!resizedDataUrl || !finalBlob) {
+              throw new Error("Failed to resize image to target size.");
+          }
+
+          setResizedImage(resizedDataUrl);
+          toast({
+              title: 'Image Resized',
+              description: `Your image has been resized to approximately ${(finalBlob.size / 1024 / 1024).toFixed(2)} MB.`,
+          });
+
+      } catch (error) {
+        console.error(error);
+        const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.';
         toast({
-            title: 'Image Resized',
-            description: `Your image has been resized to approximately ${(blob.size / 1024 / 1024).toFixed(2)} MB.`,
+          variant: 'destructive',
+          title: 'Error resizing image',
+          description: errorMessage,
         });
-
-    } catch (error) {
-      console.error(error);
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.';
-      toast({
-        variant: 'destructive',
-        title: 'Error resizing image',
-        description: errorMessage,
-      });
-    } finally {
-        setIsProcessing(false);
-    }
+      } finally {
+          setIsProcessing(false);
+      }
+    }, 50); // A small delay is enough to free up the main thread
   };
   
   const handleDownload = () => {
@@ -141,10 +154,10 @@ export function ImageResize({ onBack, title }: ToolProps) {
         <CardContent className="space-y-6">
           {!file ? (
              <FileUpload onFileSelect={(f) => { setFile(f); setResizedImage(null);}} acceptedFileTypes={['image/jpeg', 'image/png', 'image/webp']} />
-          ): (
+          ) : (
             <div className="flex flex-col items-center gap-4">
               {isProcessing && <Loader2 className="h-16 w-16 animate-spin text-primary" />}
-              {resizedImage && (
+              {!isProcessing && resizedImage && (
                 <>
                     <Image src={resizedImage} alt="Resized image" width={400} height={400} className="rounded-md object-contain" />
                     <div className="w-full space-y-4 rounded-md border p-4">
@@ -173,30 +186,36 @@ export function ImageResize({ onBack, title }: ToolProps) {
             </div>
           )}
           
-          <div className="space-y-4">
-            <h3 className="font-medium">Resize Options</h3>
-            <div className="space-y-2">
-              <Label htmlFor="size">Target Size</Label>
-              <div className="flex gap-2">
-                  <Input id="size" value={targetSize} onChange={(e) => setTargetSize(e.target.value)} placeholder="e.g., 2" type="number" className="w-full" disabled={!file || isProcessing}/>
-                  <Select value={targetUnit} onValueChange={setTargetUnit} disabled={!file || isProcessing}>
-                      <SelectTrigger className="w-[80px]">
-                          <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                          <SelectItem value="KB">KB</SelectItem>
-                          <SelectItem value="MB">MB</SelectItem>
-                      </SelectContent>
-                  </Select>
+          {file && (
+            <div className="space-y-4">
+              <h3 className="font-medium">Resize Options</h3>
+              <div className="space-y-2">
+                <Label htmlFor="size">Target Size</Label>
+                <div className="flex gap-2">
+                    <Input id="size" value={targetSize} onChange={(e) => setTargetSize(e.target.value)} placeholder="e.g., 2" type="number" className="w-full" disabled={!file || isProcessing}/>
+                    <Select value={targetUnit} onValueChange={setTargetUnit} disabled={!file || isProcessing}>
+                        <SelectTrigger className="w-[80px]">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="KB">KB</SelectItem>
+                            <SelectItem value="MB">MB</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </CardContent>
         <CardFooter className="flex-col gap-2">
-          <Button className="w-full" size="lg" onClick={handleResize} disabled={!file || isProcessing}>
-            {isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Resizing...</> : 'Resize Image'}
-          </Button>
-           <Button variant="outline" className="w-full" size="lg" onClick={handleClear} disabled={isProcessing}>Clear</Button>
+          {file && (
+            <>
+              <Button className="w-full" size="lg" onClick={handleResize} disabled={isProcessing}>
+                {isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Resizing...</> : 'Resize Image'}
+              </Button>
+              <Button variant="outline" className="w-full" size="lg" onClick={handleClear} disabled={isProcessing}>Clear</Button>
+            </>
+          )}
         </CardFooter>
       </Card>
     </ToolContainer>
