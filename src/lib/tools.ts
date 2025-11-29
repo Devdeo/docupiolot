@@ -7,6 +7,7 @@ import {
   FileText,
   Image as ImageIcon,
   Images,
+  Presentation,
   Scaling,
   User,
 } from 'lucide-react';
@@ -55,6 +56,12 @@ export const tools: Tool[] = [
     title: 'Excel to PDF',
     description: 'Convert CSV and XLSX files to PDF.',
     icon: FileSpreadsheet,
+  },
+  {
+    id: 'ppt-to-pdf',
+    title: 'PowerPoint to PDF',
+    description: 'Convert PPTX files to PDF documents.',
+    icon: Presentation,
   },
   {
     id: 'convert-from-pdf',
