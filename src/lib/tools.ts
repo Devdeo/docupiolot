@@ -10,7 +10,8 @@ import {
   Presentation,
   Scaling,
   User,
-  Shrink
+  Shrink,
+  FileMinus,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -69,6 +70,12 @@ export const tools: Tool[] = [
     title: 'PSD to PDF',
     description: 'Convert Photoshop files to PDF.',
     icon: FileImage,
+  },
+  {
+    id: 'pdf-page-remover',
+    title: 'PDF Page Remover',
+    description: 'Delete specific pages from a PDF file.',
+    icon: FileMinus,
   },
   {
     id: 'convert-from-pdf',
