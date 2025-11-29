@@ -70,7 +70,6 @@ export function PdfResize({ onBack, title }: ToolProps) {
         for (let i = 0; i < pageCount; i++) {
             setProgressMessage(`Converting page ${i + 1} of ${pageCount}...`);
             const page = pdfDoc.getPage(i);
-            const { width, height } = page.getSize();
             
             // Create a temporary PDF with just one page to render it
             const tempPdfDoc = await PDFDocument.create();
@@ -86,7 +85,8 @@ export function PdfResize({ onBack, title }: ToolProps) {
             if(!context) throw new Error("Could not create canvas context");
 
             const pdfjs = await import('pdfjs-dist/build/pdf');
-            pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+            const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.min.mjs');
+            pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
             const pdf = await pdfjs.getDocument(dataUrl).promise;
             const pdfPage = await pdf.getPage(1);
@@ -101,7 +101,6 @@ export function PdfResize({ onBack, title }: ToolProps) {
 
         // 2. Resize images to fit target size
         setProgressMessage('Compressing images...');
-        let totalImageSize = pageImages.reduce((acc, dataUrl) => acc + dataUrl.length, 0);
         let quality = 0.9;
         let scale = 1.0;
         let finalImageBlobs: Blob[] = [];
