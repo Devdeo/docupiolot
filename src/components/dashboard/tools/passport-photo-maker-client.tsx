@@ -56,6 +56,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
   // Final layout state
   const [finalLayout, setFinalLayout] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [finalEditedImage, setFinalEditedImage] = useState<string | null>(null);
   
   const { toast } = useToast();
 
@@ -121,7 +122,6 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
       ctx.lineWidth = 2;
       ctx.strokeRect(crop.x, crop.y, crop.width, crop.height);
       
-      // Draw resize handles
       const handleSize = 8;
       const handles = {
         'top-left': [crop.x, crop.y],
@@ -141,7 +141,6 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
     const { offsetX, offsetY } = e.nativeEvent;
     const handleSize = 10;
     
-    // Check resize handles
     const handles: {[key: string]: number[]} = {
         'top-left': [crop.x, crop.y],
         'top-right': [crop.x + crop.width, crop.y],
@@ -158,7 +157,6 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
         }
     }
     
-    // Check pan
     setDragging('pan');
   };
   
@@ -181,26 +179,23 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
                 x += movementX;
             }
             if (resizeHandle.includes('bottom')) {
-                height = width / aspectRatio; // Maintain aspect ratio based on width
+                height = width / aspectRatio;
             }
              if (resizeHandle.includes('top')) {
-                const heightChange = (width - c.width) / aspectRatio; // Calculate height change based on width change
+                const heightChange = (width - c.width) / aspectRatio;
                 height = width / aspectRatio;
                 y -= heightChange - (height - c.height);
             }
             
-            // Lock aspect ratio
             if (resizeHandle.includes('right') || resizeHandle.includes('left')) {
                 height = width / aspectRatio;
             } else {
                  width = height * aspectRatio;
             }
 
-            // Adjust y for top handles to keep bottom fixed
              if (resizeHandle.includes('top')) {
                 y = c.y + (c.height - height);
             }
-            // Adjust x for left handles to keep right fixed
             if (resizeHandle.includes('left')) {
                 x = c.x + (c.width - width);
             }
@@ -232,14 +227,14 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
   };
 
   const handleNextStep = () => {
-    if (currentStep === 1) { // Crop -> Edit
+    if (currentStep === 1) { 
       performCrop();
     }
     setCurrentStep(s => Math.min(s + 1, steps.length - 1));
   };
   
   const handlePrevStep = () => {
-    if (currentStep === 1) { // If on crop, go back to upload
+    if (currentStep === 1) { 
         setFile(null);
         setImageSrc(null);
     }
@@ -254,10 +249,6 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
     img.onload = () => {
       const dCanvas = document.createElement('canvas');
       
-      const sWidth = img.width;
-      const sHeight = img.height;
-
-      // Map canvas crop coordinates back to original image coordinates
       const sourceX = (crop.x - position.x) / scale;
       const sourceY = (crop.y - position.y) / scale;
       const sourceWidth = crop.width / scale;
@@ -296,12 +287,53 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
   const generateFinalLayout = () => {
     const editCanvas = editCanvasRef.current;
     if (!editCanvas) return;
-    setFinalLayout(editCanvas.toDataURL());
+    const editedImageDataUrl = editCanvas.toDataURL();
+    setFinalEditedImage(editedImageDataUrl);
+
+    const img = new window.Image();
+    img.onload = () => {
+        const layoutCanvas = document.createElement('canvas');
+        layoutCanvas.width = A4_WIDTH_PT;
+        layoutCanvas.height = A4_HEIGHT_PT;
+        const layoutCtx = layoutCanvas.getContext('2d');
+        if (!layoutCtx) return;
+        
+        layoutCtx.fillStyle = 'white';
+        layoutCtx.fillRect(0, 0, layoutCanvas.width, layoutCanvas.height);
+
+        const selectedCountry = countries[country];
+        let photoWidthPt = selectedCountry.width;
+        let photoHeightPt = selectedCountry.height;
+
+        if (selectedCountry.unit === 'mm') {
+            photoWidthPt = (photoWidthPt / 25.4) * 72;
+            photoHeightPt = (photoHeightPt / 25.4) * 72;
+        } else if (selectedCountry.unit === 'in') {
+            photoWidthPt *= 72;
+            photoHeightPt *= 72;
+        }
+        
+        const cols = Math.floor(A4_WIDTH_PT / photoWidthPt);
+        const rows = Math.floor(A4_HEIGHT_PT / photoHeightPt);
+
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                const x = col * photoWidthPt;
+                const y = row * photoHeightPt;
+                if (x + photoWidthPt <= A4_WIDTH_PT && y + photoHeightPt <= A4_HEIGHT_PT) {
+                    layoutCtx.drawImage(img, x, y, photoWidthPt, photoHeightPt);
+                }
+            }
+        }
+        setFinalLayout(layoutCanvas.toDataURL());
+    };
+    img.src = editedImageDataUrl;
+
     handleNextStep();
   }
 
   const downloadPdf = async () => {
-    if (!finalLayout) return;
+    if (!finalEditedImage) return;
     setIsProcessing(true);
 
     try {
@@ -313,16 +345,15 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
         let photoWidthPt = selectedCountry.width;
         let photoHeightPt = selectedCountry.height;
 
-        // Convert mm or inches to points
         if (selectedCountry.unit === 'mm') {
             photoWidthPt = (photoWidthPt / 25.4) * 72;
             photoHeightPt = (photoHeightPt / 25.4) * 72;
         } else if (selectedCountry.unit === 'in') {
-            photoWidthPt = photoWidthPt * 72;
-            photoHeightPt = photoHeightPt * 72;
+            photoWidthPt *= 72;
+            photoHeightPt *= 72;
         }
 
-        const jpgImageBytes = await fetch(finalLayout).then(res => res.arrayBuffer());
+        const jpgImageBytes = await fetch(finalEditedImage).then(res => res.arrayBuffer());
         const jpgImage = await pdfDoc.embedJpg(jpgImageBytes);
         
         const cols = Math.floor(page.getWidth() / photoWidthPt);
