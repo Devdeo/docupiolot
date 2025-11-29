@@ -53,6 +53,20 @@ export function PdfResize({ onBack, title }: ToolProps) {
       return;
     }
 
+    const parsedTargetSize = parseFloat(targetSize);
+    if (isNaN(parsedTargetSize) || parsedTargetSize <= 0) {
+      toast({ variant: 'destructive', title: 'Invalid target size', description: 'Please enter a positive number for the target size.' });
+      return;
+    }
+    
+    const targetBytes = parsedTargetSize * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
+    
+    if (targetBytes < 1024 || targetBytes > 100 * 1024 * 1024) {
+      toast({ variant: 'destructive', title: 'Invalid target size', description: 'Target size must be between 1 KB and 100 MB.' });
+      return;
+    }
+
+
     setIsProcessing(true);
     setResizedPdf(null);
     setResizedSize(null);
@@ -60,7 +74,6 @@ export function PdfResize({ onBack, title }: ToolProps) {
 
     setTimeout(async () => {
       try {
-        const targetBytes = (parseFloat(targetSize) || 2) * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
         const existingPdfBytes = await file.arrayBuffer();
         
         setProgressMessage(`Analyzing and converting pages...`);
@@ -100,7 +113,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
         let scale = 1.0;
         let finalPdfBytes: Uint8Array | null = null;
         
-        const maxIterations = 30; 
+        const maxIterations = 50; // Increased iterations for more aggressive compression
         for(let i = 0; i < maxIterations; i++) {
           const newPdfDoc = await PDFDocument.create();
           
@@ -135,10 +148,10 @@ export function PdfResize({ onBack, title }: ToolProps) {
             break;
           }
 
-          if (quality > 0.1) {
-            quality -= 0.1;
-          } else if (scale > 0.2) {
-            scale -= 0.1;
+          if (quality > 0.05) {
+            quality -= 0.05; // Finer steps
+          } else if (scale > 0.1) {
+            scale -= 0.05; // Finer steps
             quality = 0.9; 
           } else {
              break;
@@ -153,7 +166,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
           toast({
             variant: 'destructive',
             title: 'Target size too small',
-            description: `Could only compress to ${formatBytes(finalPdfBytes.length)}.`,
+            description: `Could only compress to ${formatBytes(finalPdfBytes.length)}. Try a larger target size.`,
           });
         } else {
             toast({
@@ -246,7 +259,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
                       </div>
                       <h3 className="font-medium">Compression Options</h3>
                       <div className="space-y-2">
-                        <Label htmlFor="size">Target Size</Label>
+                        <Label htmlFor="size">Target Size (1 KB - 100 MB)</Label>
                         <div className="flex gap-2">
                             <Input id="size" value={targetSize} onChange={(e) => setTargetSize(e.target.value)} placeholder="e.g., 2" type="number" className="w-full" disabled={isProcessing}/>
                             <Select value={targetUnit} onValueChange={setTargetUnit} disabled={isProcessing}>
@@ -279,3 +292,4 @@ export function PdfResize({ onBack, title }: ToolProps) {
     </ToolContainer>
   );
 }
+ 
