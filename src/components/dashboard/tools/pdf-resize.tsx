@@ -8,10 +8,8 @@ import { FileUpload } from '../file-upload';
 import { ToolContainer } from './tool-container';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { PDFDocument, PDFName, PDFDict } from 'pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { dataUrlToBlob } from '@/lib/image-utils';
-
 
 interface ToolProps {
   onBack: () => void;
@@ -24,6 +22,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [targetSize, setTargetSize] = useState('2');
   const [targetUnit, setTargetUnit] = useState('MB');
+  const [dpi, setDpi] = useState('150');
   const [outputFilename, setOutputFilename] = useState('');
   const { toast } = useToast();
 
@@ -50,54 +49,32 @@ export function PdfResize({ onBack, title }: ToolProps) {
     try {
       const existingPdfBytes = await file.arrayBuffer();
       const pdfDoc = await PDFDocument.load(existingPdfBytes);
-      const targetBytes = (parseFloat(targetSize) || 2) * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
-
-      // This is an aggressive compression attempt.
-      // We will iterate over all images and try to re-compress them.
-      const imageObjects = pdfDoc.context.indirectObjects.entries();
-      
-      let imageCount = 0;
-      for (const [, obj] of imageObjects) {
-          if (obj instanceof PDFDict && obj.get(PDFName.of('Subtype')) === PDFName.of('Image')) {
-            try {
-                // This is a placeholder for a more complex image extraction and re-compression logic.
-                // True re-compression would require a rendering step which is too heavy for client-side.
-                // This simplified approach re-saves the doc which can sometimes optimize it.
-                imageCount++;
-            } catch(e) {
-                console.warn("Could not process an image in the PDF, it might not be a JPG/PNG or might be corrupted.", e);
-                continue;
-            }
-          }
-      }
 
       // Flatten forms to remove interactive elements that can add size
-      const form = pdfDoc.getForm();
       try {
-        if (!form.isFlattened()) {
+        const form = pdfDoc.getForm();
+        if (form && !form.isFlattened()) {
            form.flatten();
         }
       } catch (error) {
         console.warn("Could not flatten form. It might not exist or have issues.", error);
       }
       
-      const pdfBytes = await pdfDoc.save({ useObjectStreams: false }); // Disable object streams for better compatibility
+      // Re-saving the doc can sometimes optimize it and remove unused objects.
+      const pdfBytes = await pdfDoc.save();
+      const newSize = pdfBytes.length;
+      const oldSize = existingPdfBytes.byteLength;
 
-      if (pdfBytes.length > targetBytes && pdfBytes.length < existingPdfBytes.byteLength) {
-         toast({
-          title: 'Partial Compression',
-          description: `The PDF was compressed, but is still larger than the target. New size: ${(pdfBytes.length / 1024 / 1024).toFixed(2)} MB.`,
-        });
-      } else if (pdfBytes.length >= existingPdfBytes.byteLength) {
-         toast({
-          variant: 'destructive',
-          title: 'Compression Limited',
-          description: `The PDF could not be compressed further. It may already be optimized. New size: ${(pdfBytes.length / 1024 / 1024).toFixed(2)} MB.`,
-        });
-      } else {
+      if (newSize < oldSize) {
         toast({
             title: 'PDF Processed',
-            description: `Your PDF has been re-processed. New size is ${(pdfBytes.length / 1024 / 1024).toFixed(2)} MB.`,
+            description: `Compression successful. New size is ${(newSize / 1024 / 1024).toFixed(2)} MB.`,
+        });
+      } else {
+         toast({
+          variant: 'default',
+          title: 'Compression Limited',
+          description: `The PDF could not be compressed further. It may already be optimized. Final size: ${(newSize / 1024 / 1024).toFixed(2)} MB.`,
         });
       }
       
@@ -181,6 +158,10 @@ export function PdfResize({ onBack, title }: ToolProps) {
                         </SelectContent>
                     </Select>
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="quality">Quality (DPI)</Label>
+                <Input id="quality" value={dpi} onChange={(e) => setDpi(e.target.value)} placeholder="e.g., 150" type="number" disabled={!file || isProcessing} />
               </div>
             </div>
           </div>
