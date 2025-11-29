@@ -8,8 +8,6 @@ import { Logo } from '../logo';
 import { ImageResize } from './tools/image-resize';
 import { PdfCompress } from './tools/pdf-compress';
 import { ConvertFromPdf } from './tools/convert-from-pdf';
-import { ConvertToPdf } from './tools/convert-to-pdf';
-import { MergeOrganizePdf } from './tools/merge-organize-pdf';
 import { EditPdf } from './tools/edit-pdf';
 import { PassportPhotoMaker } from './tools/passport-photo-maker';
 import { ImageConverter } from './tools/image-converter';
@@ -36,8 +34,6 @@ const toolComponents: Record<
   'image-editor': ImageEditor,
   'pdf-compress': PdfCompress,
   'convert-from-pdf': ConvertFromPdf,
-  'convert-to-pdf': ConvertToPdf,
-  'merge-organize-pdf': MergeOrganizePdf,
   'edit-pdf': EditPdf,
   'passport-photo': PassportPhotoMaker,
   'image-converter': ImageConverter,
@@ -55,7 +51,7 @@ const toolComponents: Record<
 const tools: ToolWithComponent[] = toolDefinitions.map((tool) => ({
   ...tool,
   component: toolComponents[tool.id],
-}));
+})).filter(tool => tool.component);
 
 export function DocuPilotApp() {
   const [activeTool, setActiveTool] = useState<ToolWithComponent | null>(null);

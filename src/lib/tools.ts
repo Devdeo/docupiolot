@@ -105,24 +105,6 @@ export const tools: Tool[] = [
     icon: FileText,
   },
   {
-    id: 'convert-from-pdf',
-    title: 'Convert from PDF',
-    description: 'Turn PDFs into JPG, DOCX, XLS, and more.',
-    icon: ArrowRightLeft,
-  },
-  {
-    id: 'convert-to-pdf',
-    title: 'Convert to PDF',
-    description: 'Convert DOCX, PPT, PSD, and others to PDF.',
-    icon: Combine,
-  },
-  {
-    id: 'merge-organize-pdf',
-    title: 'Merge & Organize PDF',
-    description: 'Combine PDFs, delete pages, or add images.',
-    icon: Combine,
-  },
-  {
     id: 'passport-photo',
     title: 'Passport Photo Maker',
     description: 'Create perfect passport photos from any image.',
