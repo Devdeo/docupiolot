@@ -68,7 +68,7 @@ export function DocuPilotApp() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-background text-foreground">
+    <div className="w-full bg-background text-foreground">
       <AnimatePresence mode="wait">
         {activeTool ? (
           <motion.div
@@ -90,12 +90,6 @@ export function DocuPilotApp() {
           >
             <header className="py-12 md:py-16">
               <div className="container mx-auto px-4 text-center">
-                <div className="flex items-center justify-center gap-4 mb-4">
-                  <Logo />
-                  <h1 className="text-4xl md:text-5xl font-bold tracking-tighter text-primary">
-                    DocuPilot
-                  </h1>
-                </div>
                 <p className="max-w-2xl mx-auto text-muted-foreground md:text-lg">
                   Your all-in-one document processing assistant. Resize, convert, and edit with professional-grade tools.
                 </p>
