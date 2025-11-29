@@ -8,9 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FileUpload } from '../file-upload';
 import { ToolContainer } from './tool-container';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Scissors, Move, Pencil, Printer, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
-import { PDFDocument, rgb } from 'pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 
 interface ToolProps {
   onBack: () => void;
@@ -30,21 +30,21 @@ const countries = {
 
 type CountryKey = keyof typeof countries;
 
-// A4 paper dimensions in points (1 point = 1/72 inch)
 const A4_WIDTH_PT = 595.28;
 const A4_HEIGHT_PT = 841.89;
-
 
 export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
-  const [originalImage, setOriginalImage] = useState<HTMLImageElement | null>(null);
-  const [country, setCountry] = useState<CountryKey>('uk');
   
-  // Cropping state
+  // Cropping & image state
   const cropCanvasRef = useRef<HTMLCanvasElement>(null);
-  const [crop, setCrop] = useState({ x: 50, y: 50, width: 200, height: 0 });
-  const [isDragging, setIsDragging] = useState(false);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 100, y: 100, width: 200, height: 200 });
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState<'pan' | 'resize' | null>(null);
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   
   // Editing state
   const [croppedImage, setCroppedImage] = useState<string | null>(null);
@@ -61,92 +61,167 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
   const getAspectRatio = useCallback(() => {
     const { width, height } = countries[country];
     return width / height;
-  }, [country]);
+  }, []);
 
   // Load original image
   useEffect(() => {
     if (!file) {
-      setOriginalImage(null);
+      setImageSrc(null);
       return;
     }
     const reader = new FileReader();
     reader.onload = (e) => {
-      const img = document.createElement('img');
-      img.onload = () => {
-        setOriginalImage(img);
-        // Reset crop on new image
-        const aspectRatio = getAspectRatio();
-        const canvasWidth = cropCanvasRef.current?.width || 500;
-        const initialCropWidth = canvasWidth / 2;
-        setCrop({
-          x: canvasWidth / 4,
-          y: 50,
-          width: initialCropWidth,
-          height: initialCropWidth / aspectRatio,
-        });
-      };
-      img.src = e.target?.result as string;
+      setImageSrc(e.target?.result as string);
     };
     reader.readAsDataURL(file);
-  }, [file, getAspectRatio]);
+  }, [file]);
+  
+  // Reset crop on new image or country change
+  useEffect(() => {
+    if (imageSrc && cropCanvasRef.current) {
+      const canvas = cropCanvasRef.current;
+      const aspectRatio = getAspectRatio();
+      const newCropWidth = canvas.width / 2;
+      const newCropHeight = newCropWidth / aspectRatio;
+      setCrop({
+        x: (canvas.width - newCropWidth) / 2,
+        y: (canvas.height - newCropHeight) / 2,
+        width: newCropWidth,
+        height: newCropHeight,
+      });
+      setPosition({ x: 0, y: 0 });
+      setScale(1);
+    }
+  }, [imageSrc, getAspectRatio, country]);
 
   // Draw image and crop overlay
   useEffect(() => {
     const canvas = cropCanvasRef.current;
-    if (!canvas || !originalImage) return;
+    const ctx = canvas?.getContext('2d');
+    if (!ctx || !canvas || !imageSrc) return;
     
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    // Fit image to canvas
-    const canvasRatio = canvas.width / canvas.height;
-    const imageRatio = originalImage.width / originalImage.height;
-    let drawWidth, drawHeight, offsetX, offsetY;
+    const img = new window.Image();
+    img.onload = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.translate(position.x, position.y);
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0);
+      ctx.restore();
 
-    if (imageRatio > canvasRatio) {
-      drawWidth = canvas.width;
-      drawHeight = canvas.width / imageRatio;
-      offsetX = 0;
-      offsetY = (canvas.height - drawHeight) / 2;
-    } else {
-      drawHeight = canvas.height;
-      drawWidth = canvas.height * imageRatio;
-      offsetY = 0;
-      offsetX = (canvas.width - drawWidth) / 2;
-    }
+      // Draw crop overlay
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.beginPath();
+      ctx.rect(0, 0, canvas.width, canvas.height);
+      ctx.rect(crop.x, crop.y, crop.width, crop.height);
+      ctx.fill('evenodd');
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(originalImage, offsetX, offsetY, drawWidth, drawHeight);
-
-    // Draw crop overlay
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(crop.x, crop.y, crop.width, crop.height);
-    ctx.clip();
-    ctx.drawImage(originalImage, offsetX, offsetY, drawWidth, drawHeight);
-    ctx.restore();
-
-    ctx.strokeStyle = 'red';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(crop.x, crop.y, crop.width, crop.height);
-
-  }, [originalImage, crop]);
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(crop.x, crop.y, crop.width, crop.height);
+      
+      // Draw resize handles
+      const handleSize = 8;
+      const handles = {
+        'top-left': [crop.x, crop.y],
+        'top-right': [crop.x + crop.width, crop.y],
+        'bottom-left': [crop.x, crop.y + crop.height],
+        'bottom-right': [crop.x + crop.width, crop.y + crop.height],
+      }
+      ctx.fillStyle = 'red';
+      Object.values(handles).forEach(([hx, hy]) => {
+        ctx.fillRect(hx - handleSize/2, hy - handleSize/2, handleSize, handleSize)
+      });
+    };
+    img.src = imageSrc;
+  }, [imageSrc, crop, scale, position]);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const { offsetX, offsetY } = e.nativeEvent;
-    if (offsetX > crop.x && offsetX < crop.x + crop.width &&
-        offsetY > crop.y && offsetY < crop.y + crop.height) {
-      setIsDragging(true);
+    const handleSize = 10;
+    
+    // Check resize handles
+    const handles: {[key: string]: number[]} = {
+        'top-left': [crop.x, crop.y],
+        'top-right': [crop.x + crop.width, crop.y],
+        'bottom-left': [crop.x, crop.y + crop.height],
+        'bottom-right': [crop.x + crop.width, crop.y + crop.height],
+    };
+
+    for(const [handle, [hx, hy]] of Object.entries(handles)) {
+        if (offsetX > hx - handleSize && offsetX < hx + handleSize &&
+            offsetY > hy - handleSize && offsetY < hy + handleSize) {
+            setDragging('resize');
+            setResizeHandle(handle);
+            return;
+        }
     }
+    
+    // Check pan
+    setDragging('pan');
   };
   
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDragging) return;
-    setCrop(c => ({ ...c, x: c.x + e.movementX, y: c.y + e.movementY }));
+    if (!dragging) return;
+    const { movementX, movementY } = e;
+    const aspectRatio = getAspectRatio();
+
+    if (dragging === 'pan') {
+      setPosition(p => ({ x: p.x + movementX, y: p.y + movementY }));
+    } else if (dragging === 'resize' && resizeHandle) {
+        setCrop(c => {
+            let { x, y, width, height } = c;
+            
+            if (resizeHandle.includes('right')) {
+                width += movementX;
+            }
+            if (resizeHandle.includes('left')) {
+                width -= movementX;
+                x += movementX;
+            }
+            if (resizeHandle.includes('bottom')) {
+                height = width / aspectRatio; // Maintain aspect ratio based on width
+            }
+             if (resizeHandle.includes('top')) {
+                const heightChange = (width - c.width) / aspectRatio; // Calculate height change based on width change
+                height = width / aspectRatio;
+                y -= heightChange - (height - c.height);
+            }
+            
+            // Lock aspect ratio
+            if (resizeHandle.includes('right') || resizeHandle.includes('left')) {
+                height = width / aspectRatio;
+            } else {
+                 width = height * aspectRatio;
+            }
+
+            // Adjust y for top handles to keep bottom fixed
+             if (resizeHandle.includes('top')) {
+                y = c.y + (c.height - height);
+            }
+            // Adjust x for left handles to keep right fixed
+            if (resizeHandle.includes('left')) {
+                x = c.x + (c.width - width);
+            }
+
+            return { x, y, width, height };
+        });
+    }
   };
+
+  const handleMouseUp = () => {
+    setDragging(null);
+    setResizeHandle(null);
+  };
+
+  const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setScale(s => Math.max(0.1, s + delta));
+  };
+
+
+  const [country, setCountry] = useState<CountryKey>('uk');
 
   const handleFileSelect = (files: File[]) => {
     setFile(files[0] || null);
@@ -167,51 +242,38 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
   const handlePrevStep = () => {
     if (currentStep === 1) { // If on crop, go back to upload
         setFile(null);
-        setOriginalImage(null);
+        setImageSrc(null);
     }
     setCurrentStep(s => Math.max(s - 1, 0));
   };
 
   const performCrop = () => {
     const sCanvas = cropCanvasRef.current;
-    const dCanvas = document.createElement('canvas');
-    if (!sCanvas || !originalImage) return;
+    if (!sCanvas || !imageSrc) return;
 
-    const sCtx = sCanvas.getContext('2d');
-    if (!sCtx) return;
-    
-    // This part is tricky because the image is scaled on the canvas.
-    // We need to map canvas crop coordinates back to original image coordinates.
-    const canvasRatio = sCanvas.width / sCanvas.height;
-    const imageRatio = originalImage.width / originalImage.height;
-    let drawWidth, drawHeight, offsetX, offsetY;
-    if (imageRatio > canvasRatio) {
-      drawWidth = sCanvas.width;
-      drawHeight = sCanvas.width / imageRatio;
-      offsetX = 0;
-      offsetY = (sCanvas.height - drawHeight) / 2;
-    } else {
-      drawHeight = sCanvas.height;
-      drawWidth = sCanvas.height * imageRatio;
-      offsetY = 0;
-      offsetX = (sCanvas.width - drawWidth) / 2;
+    const img = new window.Image();
+    img.onload = () => {
+      const dCanvas = document.createElement('canvas');
+      
+      const sWidth = img.width;
+      const sHeight = img.height;
+
+      // Map canvas crop coordinates back to original image coordinates
+      const sourceX = (crop.x - position.x) / scale;
+      const sourceY = (crop.y - position.y) / scale;
+      const sourceWidth = crop.width / scale;
+      const sourceHeight = crop.height / scale;
+
+      dCanvas.width = sourceWidth;
+      dCanvas.height = sourceHeight;
+      const dCtx = dCanvas.getContext('2d');
+      if (!dCtx) return;
+
+      dCtx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, sourceWidth, sourceHeight);
+      
+      setCroppedImage(dCanvas.toDataURL());
     }
-
-    const scale = originalImage.width / drawWidth;
-
-    const sx = (crop.x - offsetX) * scale;
-    const sy = (crop.y - offsetY) * scale;
-    const sWidth = crop.width * scale;
-    const sHeight = crop.height * scale;
-
-    dCanvas.width = sWidth;
-    dCanvas.height = sHeight;
-    const dCtx = dCanvas.getContext('2d');
-    if (!dCtx) return;
-
-    dCtx.drawImage(originalImage, sx, sy, sWidth, sHeight, 0, 0, sWidth, sHeight);
-    
-    setCroppedImage(dCanvas.toDataURL());
+    img.src = imageSrc;
   };
 
   // Apply brightness/contrast filters
@@ -221,7 +283,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
     const ctx = canvas.getContext('2d');
     if(!ctx) return;
     
-    const img = new Image();
+    const img = new window.Image();
     img.onload = () => {
       canvas.width = img.width;
       canvas.height = img.height;
@@ -248,7 +310,6 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
         const page = pdfDoc.addPage([A4_WIDTH_PT, A4_HEIGHT_PT]);
 
         const selectedCountry = countries[country];
-        const dpi = selectedCountry.dpi;
         
         let photoWidthPt = selectedCountry.width;
         let photoHeightPt = selectedCountry.height;
@@ -326,17 +387,18 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
       case 1:
         return (
           <div className='w-full text-center space-y-2'>
-            <p className="text-sm text-muted-foreground">Drag the box to position your photo.</p>
-            <div className="relative w-full aspect-square bg-muted rounded-md overflow-hidden flex items-center justify-center">
+            <p className="text-sm text-muted-foreground">Pan, scroll to zoom, and drag handles to crop.</p>
+            <div className="relative w-full max-w-[500px] aspect-square bg-muted rounded-md overflow-hidden flex items-center justify-center">
               <canvas
                 ref={cropCanvasRef}
                 width={500}
                 height={500}
-                className="max-w-full max-h-full object-contain cursor-move"
+                className="max-w-full max-h-full object-contain cursor-grab active:cursor-grabbing"
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
-                onMouseUp={() => setIsDragging(false)}
-                onMouseLeave={() => setIsDragging(false)}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onWheel={handleWheel}
               />
             </div>
           </div>
@@ -366,7 +428,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
                  <p className="text-sm text-muted-foreground">Your photos are ready for printing on an A4 sheet.</p>
                  <div className="relative w-full aspect-[1/1.414] bg-white rounded-md overflow-hidden flex items-center justify-center border shadow-sm">
                     {finalLayout && (
-                      <Image src={finalLayout} alt="Final Layout Preview" layout="fill" objectFit="contain" className="p-4" />
+                      <Image src={finalLayout} alt="Final Layout Preview" fill className="object-contain p-4" />
                     )}
                  </div>
                  <p className='text-xs text-muted-foreground'>This is a preview. The final PDF will contain a full sheet of photos.</p>
