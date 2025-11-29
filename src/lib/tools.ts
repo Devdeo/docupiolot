@@ -46,7 +46,7 @@ export const tools: Tool[] = [
   {
     id: 'add-images-to-pdf',
     title: 'Add Images to PDF',
-    description: 'Combine multiple images into a single PDF.',
+    description: 'Combine images and PDFs into a single file.',
     icon: FileImage,
   },
   {
