@@ -6,7 +6,7 @@ import { tools as toolDefinitions, type Tool } from '@/lib/tools';
 import { ToolGrid } from './tool-grid';
 import { Logo } from '../logo';
 import { ImageResize } from './tools/image-resize';
-import { PdfResize } from './tools/pdf-resize';
+import { PdfCompress } from './tools/pdf-compress';
 import { ConvertFromPdf } from './tools/convert-from-pdf';
 import { ConvertToPdf } from './tools/convert-to-pdf';
 import { MergeOrganizePdf } from './tools/merge-organize-pdf';
@@ -29,7 +29,7 @@ const toolComponents: Record<
   React.ComponentType<{ onBack: () => void; title: string }>
 > = {
   'image-resize': ImageResize,
-  'pdf-resize': PdfResize,
+  'pdf-compress': PdfCompress,
   'convert-from-pdf': ConvertFromPdf,
   'convert-to-pdf': ConvertToPdf,
   'merge-organize-pdf': MergeOrganizePdf,

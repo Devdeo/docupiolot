@@ -10,6 +10,7 @@ import {
   Presentation,
   Scaling,
   User,
+  Shrink
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -28,10 +29,10 @@ export const tools: Tool[] = [
     icon: Scaling,
   },
   {
-    id: 'pdf-resize',
-    title: 'PDF Resizer',
-    description: 'Change PDF dimensions and quality.',
-    icon: FileText,
+    id: 'pdf-compress',
+    title: 'PDF Compressor',
+    description: 'Reduce PDF file size while optimizing for quality.',
+    icon: Shrink,
   },
   {
     id: 'pdf-to-image',
