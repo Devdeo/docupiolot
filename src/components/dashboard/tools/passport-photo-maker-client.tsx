@@ -49,6 +49,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const pinchDist = useRef(0);
+  const initialScale = useRef(1);
   
   // Editing state
   const [croppedImage, setCroppedImage] = useState<string | null>(null);
@@ -96,14 +97,14 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
       const imgWidth = imageRef.current.width;
       const imgHeight = imageRef.current.height;
       
-      let initialScale = 1;
+      let initialImgScale = 1;
       if (imgWidth > canvas.width || imgHeight > canvas.height) {
-        initialScale = Math.min(canvas.width / imgWidth, canvas.height / imgHeight);
+        initialImgScale = Math.min(canvas.width / imgWidth, canvas.height / imgHeight);
       }
-      setScale(initialScale);
+      setScale(initialImgScale);
       
-      const scaledWidth = imgWidth * initialScale;
-      const scaledHeight = imgHeight * initialScale;
+      const scaledWidth = imgWidth * initialImgScale;
+      const scaledHeight = imgHeight * initialImgScale;
       
       const newCropWidth = Math.min(scaledWidth, canvas.width) * 0.8;
       const newCropHeight = newCropWidth / aspectRatio;
@@ -160,7 +161,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
     });
   }, [crop, scale, position, imageSrc]);
   
-  const getCoords = (e: React.MouseEvent | React.TouchEvent) => {
+  const getCoords = (e: React.MouseEvent | React.TouchEvent | Touch) => {
     const canvas = cropCanvasRef.current;
     if(!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
@@ -219,7 +220,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
             width = newWidth;
           }
 
-          return { x: newX, y: newY, width, height };
+          return { x: newX, y: newY, width: Math.max(20,width), height: Math.max(20, height) };
       });
     }
     setDragStart({ x, y });
@@ -242,33 +243,33 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
 
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    if(e.touches.length === 1) {
-        const {x, y} = getCoords(e);
-        handleDragStart(x, y);
+    if (e.touches.length === 1) {
+      const { x, y } = getCoords(e.touches[0]);
+      handleDragStart(x, y);
     } else if (e.touches.length === 2) {
-        const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        pinchDist.current = dist;
+      setDragging(null);
+      const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      pinchDist.current = dist;
+      initialScale.current = scale;
     }
-  }
+  };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    if(e.touches.length === 1) {
-        const {x, y} = getCoords(e);
-        handleDragMove(x, y);
+    if (e.touches.length === 1 && dragging) {
+      const { x, y } = getCoords(e.touches[0]);
+      handleDragMove(x, y);
     } else if (e.touches.length === 2) {
-        const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        const delta = dist - pinchDist.current;
-        setScale(s => Math.max(0.1, s + delta * 0.01));
-        pinchDist.current = dist;
+      const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      const zoomRatio = dist / pinchDist.current;
+      setScale(Math.max(0.1, initialScale.current * zoomRatio));
     }
-  }
+  };
   
   const handleTouchEnd = () => {
     pinchDist.current = 0;
     handleDragEnd();
   }
-
 
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
@@ -290,7 +291,11 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
     if (currentStep === 1) { 
       performCrop();
     }
-    setCurrentStep(s => Math.min(s + 1, steps.length - 1));
+    if(currentStep === 2){
+      generateFinalLayout();
+    } else {
+      setCurrentStep(s => Math.min(s + 1, steps.length - 1));
+    }
   };
   
   const handlePrevStep = () => {
@@ -346,6 +351,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
 
 
   const generateFinalLayout = () => {
+    setCurrentStep(s => Math.min(s + 1, steps.length - 1));
     const editCanvas = editCanvasRef.current;
     if (!editCanvas) return;
     const editedImageDataUrl = editCanvas.toDataURL('image/jpeg');
@@ -389,8 +395,6 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
         setFinalLayout(layoutCanvas.toDataURL());
     };
     img.src = editedImageDataUrl;
-
-    handleNextStep();
   }
 
   const downloadPdf = async () => {
@@ -478,7 +482,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
       case 1:
         return (
           <div className='w-full text-center space-y-2'>
-            <p className="text-sm text-muted-foreground">Pan, zoom, and drag handles to crop.</p>
+            <p className="text-sm text-muted-foreground">Pan, scroll to zoom, and drag handles to crop.</p>
             <div className="relative w-full max-w-[500px] aspect-square bg-muted rounded-md overflow-hidden flex items-center justify-center touch-none">
               <canvas
                 ref={cropCanvasRef}
@@ -541,13 +545,13 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
           <CardDescription>Step {currentStep + 1} of {steps.length}: {steps[currentStep]}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 min-h-[300px] flex flex-col items-center justify-center">
-          {isProcessing && (
+          {isProcessing && currentStep !== 3 &&(
             <div className="flex flex-col items-center justify-center gap-4 p-8">
               <Loader2 className="h-16 w-16 animate-spin text-primary" />
-              <p className="text-muted-foreground">Generating PDF...</p>
+              <p className="text-muted-foreground">Processing...</p>
             </div>
           )}
-          {!isProcessing && renderStep()}
+          {(!isProcessing || currentStep === 3) && renderStep()}
         </CardContent>
         <CardFooter className="flex justify-between">
           <Button variant="outline" onClick={handlePrevStep} disabled={currentStep === 0 || isProcessing}>
@@ -566,7 +570,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
           )}
            {currentStep === 3 && (
             <Button onClick={downloadPdf} disabled={isProcessing || !finalLayout}>
-                <Download className="mr-2 h-4 w-4" />
+                {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                 Download PDF
             </Button>
           )}
@@ -575,5 +579,3 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
     </ToolContainer>
   );
 }
-
-    
