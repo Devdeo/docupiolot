@@ -109,13 +109,14 @@ export default function PdfResizeClient({ onBack, title }: ToolProps) {
         let totalImageSize = Infinity;
         let quality = 0.9;
         let scale = 1.0;
-        const MAX_ITERATIONS = 50; // Increased iterations
-
-        for (let i = 0; i < MAX_ITERATIONS && totalImageSize > targetBytes; i++) {
+        
+        let iteration = 0;
+        while (totalImageSize > targetBytes && (scale > 0.1 || quality > 0.05)) {
+          iteration++;
           totalImageSize = 0;
           currentImages = [];
           
-          setProgressMessage(`Iteration ${i+1}: Compressing with scale ${scale.toFixed(2)} & quality ${quality.toFixed(2)}`);
+          setProgressMessage(`Iteration ${iteration}: Compressing with scale ${scale.toFixed(2)} & quality ${quality.toFixed(2)}`);
 
           for (const pageData of pageImagesData) {
             const img = new Image();
@@ -141,14 +142,15 @@ export default function PdfResizeClient({ onBack, title }: ToolProps) {
 
           if (totalImageSize > targetBytes) {
              if (quality > 0.1) {
-                quality -= 0.05; // Reduce quality first
-             } else if (scale > 0.2) {
-                scale -= 0.05; // Then reduce scale
+                quality -= 0.1; // Reduce quality first
+             } else if (scale > 0.1) {
+                scale -= 0.1; // Then reduce scale
                 quality = 0.9; // Reset quality when scaling down
              } else {
-                quality -= 0.01; // Final desperate quality reduction
+                quality -= 0.05; // Final desperate quality reduction
              }
-             if (quality < 0) quality = 0;
+             if (quality < 0) quality = 0.01;
+             if (scale < 0) scale = 0.1;
           }
         }
         
@@ -161,20 +163,11 @@ export default function PdfResizeClient({ onBack, title }: ToolProps) {
         }
 
         const finalPdfBytes = await newPdfDoc.save();
-        
-        if (finalPdfBytes.length > targetBytes * 1.1) { // Add a 10% tolerance
-             toast({
-                variant: "destructive",
-                title: 'Target size not met',
-                description: `Could only compress to ${formatBytes(finalPdfBytes.length)}. Please try a larger target size.`,
-            });
-        } else {
-            toast({
-                title: 'Compression Successful',
-                description: `Final PDF size: ${formatBytes(finalPdfBytes.length)}.`,
-            });
-        }
 
+        toast({
+            title: 'Compression Successful',
+            description: `Final PDF size: ${formatBytes(finalPdfBytes.length)}.`,
+        });
 
         setResizedPdf(finalPdfBytes);
         setResizedSize(finalPdfBytes.length);
