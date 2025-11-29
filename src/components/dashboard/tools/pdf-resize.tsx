@@ -51,10 +51,9 @@ export function PdfResize({ onBack, title }: ToolProps) {
       const pdfDoc = await PDFDocument.load(existingPdfBytes);
       
       // Re-saving the PDF with pdf-lib can often reduce file size
-      // by optimizing the document structure. Precise compression to a target
-      // size is very complex on the client side. This provides a "best effort"
-      // compression.
-      const pdfBytes = await pdfDoc.save();
+      // by optimizing the document structure. This provides a "best effort"
+      // compression on the client-side.
+      const pdfBytes = await pdfDoc.save({ useObjectStreams: false });
 
       setResizedPdf(pdfBytes);
       toast({
