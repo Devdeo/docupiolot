@@ -4,7 +4,6 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileUpload } from '../file-upload';
 import { ToolContainer } from './tool-container';
 import { useToast } from '@/hooks/use-toast';
@@ -20,8 +19,6 @@ export function PdfResize({ onBack, title }: ToolProps) {
   const [file, setFile] = useState<File | null>(null);
   const [resizedPdf, setResizedPdf] = useState<Uint8Array | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [targetSize, setTargetSize] = useState('5');
-  const [targetUnit, setTargetUnit] = useState('MB');
   const [dpi, setDpi] = useState('144');
   const [outputFilename, setOutputFilename] = useState('');
   const { toast } = useToast();
@@ -50,9 +47,13 @@ export function PdfResize({ onBack, title }: ToolProps) {
       const existingPdfBytes = await file.arrayBuffer();
       const pdfDoc = await PDFDocument.load(existingPdfBytes);
       
-      // Re-saving the PDF with pdf-lib can often reduce file size
-      // by optimizing the document structure. This provides a "best effort"
-      // compression on the client-side.
+      const form = pdfDoc.getForm();
+      try {
+        form.flatten();
+      } catch (error) {
+        console.warn("Could not flatten form. It might not exist or have issues.", error);
+      }
+
       const pdfBytes = await pdfDoc.save({ useObjectStreams: false });
 
       setResizedPdf(pdfBytes);
@@ -66,7 +67,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.';
       toast({
         variant: 'destructive',
-        title: 'Error resizing PDF',
+        title: 'Error processing PDF',
         description: errorMessage,
       });
     } finally {
@@ -121,33 +122,19 @@ export function PdfResize({ onBack, title }: ToolProps) {
           )}
 
           <div className="space-y-4">
-            <h3 className="font-medium">Resize Options</h3>
+            <h3 className="font-medium">Compression Options</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               <div className="space-y-2">
-                <Label htmlFor="size">Target Size</Label>
-                <div className="flex gap-2">
-                    <Input id="size" value={targetSize} onChange={e => setTargetSize(e.target.value)} placeholder="e.g., 5" type="number" className="w-full" disabled={!file || isProcessing}/>
-                    <Select value={targetUnit} onValueChange={setTargetUnit} disabled={!file || isProcessing}>
-                        <SelectTrigger className="w-[80px]">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="KB">KB</SelectItem>
-                            <SelectItem value="MB">MB</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
+              <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="quality">Quality (DPI)</Label>
                 <Input id="quality" value={dpi} onChange={e => setDpi(e.target.value)} placeholder="e.g., 144" type="number" disabled={!file || isProcessing} />
+                <p className="text-xs text-muted-foreground">Lower DPI may reduce file size for PDFs with images. This is a best-effort compression.</p>
               </div>
             </div>
           </div>
         </CardContent>
         <CardFooter className="flex-col gap-2">
           <Button className="w-full" size="lg" onClick={handleResize} disabled={!file || isProcessing}>
-            {isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Resizing...</> : 'Resize PDF'}
+            {isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Compressing...</> : 'Compress PDF'}
           </Button>
           <Button variant="outline" className="w-full" size="lg" onClick={handleClear} disabled={isProcessing}>Clear</Button>
         </CardFooter>
