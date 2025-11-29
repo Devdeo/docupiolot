@@ -21,6 +21,7 @@ import { PdfPageRemover } from './tools/pdf-page-remover';
 import { PdfStamper } from './tools/pdf-stamper';
 import { PdfToWord } from './tools/pdf-to-word';
 import { ImageEditor } from './tools/image-editor';
+import { GoogleAdsense } from '../analytics/google-adsense';
 
 type ToolWithComponent = Tool & {
   component: React.ComponentType<{ onBack: () => void; title: string }>;
@@ -96,6 +97,9 @@ export function DocuPilotApp() {
               </div>
             </header>
             <main className="container mx-auto px-4 pb-16">
+              <div className="mb-8">
+                <GoogleAdsense />
+              </div>
               <ToolGrid tools={tools} onToolSelect={handleToolSelect} />
             </main>
           </motion.div>
