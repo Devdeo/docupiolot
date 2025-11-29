@@ -3,21 +3,27 @@
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GoogleAdsense } from '@/components/analytics/google-adsense';
+import { useRouter } from 'next/navigation';
 
 interface ToolContainerProps {
   title: string;
-  onBack: () => void;
   children: React.ReactNode;
 }
 
-export function ToolContainer({ title, onBack, children }: ToolContainerProps) {
+export function ToolContainer({ title, children }: ToolContainerProps) {
+  const router = useRouter();
+
+  const handleBack = () => {
+    router.push('/');
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
       <div className="relative mb-8 flex items-center justify-center">
         <Button
           variant="ghost"
           size="icon"
-          onClick={onBack}
+          onClick={handleBack}
           className="absolute left-0 top-1/2 -translate-y-1/2"
           aria-label="Go back"
         >

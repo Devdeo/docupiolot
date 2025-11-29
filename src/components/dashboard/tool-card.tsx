@@ -9,20 +9,18 @@ import type { Tool } from '@/lib/tools';
 
 type ToolCardProps = {
   tool: Tool;
-  onClick: () => void;
 };
 
-export function ToolCard({ tool, onClick }: ToolCardProps) {
+export function ToolCard({ tool }: ToolCardProps) {
   const Icon = tool.icon;
   return (
     <motion.div
       whileHover={{ y: -5, scale: 1.02 }}
       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+      className='h-full'
     >
       <Card
         className="h-full cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-primary/50"
-        onClick={onClick}
-        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onClick()}
         role="button"
         tabIndex={0}
         aria-label={`Open ${tool.title}`}

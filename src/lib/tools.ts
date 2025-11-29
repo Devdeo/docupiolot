@@ -117,3 +117,22 @@ export const tools: Tool[] = [
     icon: ImageIcon,
   },
 ];
+
+
+export const toolRoutes: Record<string, string> = {
+  'image-resize': '/photo-kb-resize-online-Compressor',
+  'image-editor': '/photo-editor-online',
+  'pdf-compress': '/pdf-kb-resize-online-pdf-Compressor',
+  'edit-pdf': '/edit-pdf-online',
+  'pdf-to-image': '/pdf-to-photo-image-online-jpg-jpeg',
+  'add-images-to-pdf': '/image-to-pdf-online-jpg-to-pdf-merge-online',
+  'docx-to-pdf': '/word-to-pdf-doc-convertor-online',
+  'excel-to-pdf': '/excel-csv-to-pdf-convertor-online',
+  'ppt-to-pdf': '/pptx-to-pdf-convertor-online',
+  'psd-to-pdf': '/psd-to-pdf-photoshop-pdf-online',
+  'organize-pdf-pages': '/organize-pdf-pages', // User did not provide this
+  'pdf-stamper': '/pdf-numbering-watermark-online',
+  'pdf-to-word': '/pdf-to-word-convertor-online',
+  'passport-photo': '/passport-size-photo-maker-online',
+  'image-converter': '/image-converter-online-png-jpg-webm',
+};
