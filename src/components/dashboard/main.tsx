@@ -17,8 +17,9 @@ export function DocuPilotApp() {
       >
         <header className="py-12 md:py-16">
           <div className="container mx-auto px-4 text-center">
-            <p className="max-w-2xl mx-auto text-muted-foreground md:text-lg">
-              Your all-in-one document processing assistant. Resize, convert, and edit with professional-grade tools.
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tighter">DocuPilot – Smart Document Processing Made Simple</h1>
+            <p className="max-w-2xl mx-auto text-muted-foreground md:text-lg mt-4">
+             Your all-in-one suite for fast, secure, and professional document editing. Convert, resize, compress, and optimize your files instantly — all inside your browser.
             </p>
           </div>
         </header>
@@ -26,6 +27,7 @@ export function DocuPilotApp() {
           <div className="mb-8">
             <GoogleAdsense />
           </div>
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-center mb-8">Powerful Tools to Boost Your Workflow</h2>
           <ToolGrid tools={toolDefinitions} />
         </main>
       </motion.div>

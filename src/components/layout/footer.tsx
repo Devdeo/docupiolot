@@ -9,10 +9,10 @@ export function Footer() {
           <div className="text-center md:text-left">
             <p className="text-lg font-semibold text-foreground flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-green-500" />
-              Your Privacy is Our Priority
+              Privacy You Can Trust
             </p>
             <p className="text-sm max-w-md mt-1">
-              We do not store any of your files on our servers. All processing happens in your browser, ensuring your data remains private and secure.
+             DocuPilot never stores your files. All processing happens **locally in your browser**, ensuring 100% privacy and complete data security.
             </p>
           </div>
           <div className="flex flex-col items-center md:items-end gap-2 text-sm">
