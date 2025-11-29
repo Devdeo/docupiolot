@@ -8,8 +8,6 @@ import { FileUpload } from '../file-upload';
 import { ToolContainer } from './tool-container';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { fileToDataUrl } from '@/lib/image-utils';
-import { convertFromPdf } from '@/ai/flows/convert-from-pdf';
 import JSZip from 'jszip';
 
 interface ToolProps {
@@ -37,17 +35,39 @@ export function ConvertFromPdf({ onBack, title }: ToolProps) {
     setIsConverting(true);
     setConvertedImages(null);
     try {
-      const pdfDataUrl = await fileToDataUrl(file);
-      const result = await convertFromPdf({
-        pdfDataUri: pdfDataUrl,
-        outputFormat: format,
-      });
+      const pdfjs = await import('pdfjs-dist/build/pdf');
+      const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.mjs');
+      
+      pdfjs.GlobalWorkerOptions.workerSrc = new URL((pdfjsWorker as any), import.meta.url).toString();
 
-      if (result.images && result.images.length > 0) {
-        setConvertedImages(result.images);
+      const pdfData = await file.arrayBuffer();
+      const pdf = await pdfjs.getDocument({ data: pdfData }).promise;
+      const pageCount = pdf.numPages;
+      const images: string[] = [];
+
+      for (let i = 0; i < pageCount; i++) {
+          const page = await pdf.getPage(i + 1);
+          const viewport = page.getViewport({ scale: 2.0 }); // Use a high scale for better quality
+
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          if (!context) throw new Error("Could not create canvas context");
+
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+
+          await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+          images.push(canvas.toDataURL('image/jpeg', 0.95)); // High quality JPEG
+      }
+      await pdf.destroy();
+
+
+      if (images && images.length > 0) {
+        setConvertedImages(images);
         toast({
           title: 'Conversion Successful',
-          description: `Your PDF has been converted into ${result.images.length} JPG image(s).`,
+          description: `Your PDF has been converted into ${images.length} JPG image(s).`,
         });
       } else {
         throw new Error('Conversion resulted in no images.');
