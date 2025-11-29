@@ -38,6 +38,12 @@ export const tools: Tool[] = [
     icon: Shrink,
   },
   {
+    id: 'edit-pdf',
+    title: 'Edit PDF',
+    description: 'Make direct edits to your PDF files.',
+    icon: FilePenLine,
+  },
+  {
     id: 'pdf-to-image',
     title: 'PDF to Image',
     description: 'Convert each page of a PDF into an image.',
@@ -108,12 +114,6 @@ export const tools: Tool[] = [
     title: 'Merge & Organize PDF',
     description: 'Combine PDFs, delete pages, or add images.',
     icon: Combine,
-  },
-  {
-    id: 'edit-pdf',
-    title: 'Edit PDF',
-    description: 'Make direct edits to your PDF files.',
-    icon: FilePenLine,
   },
   {
     id: 'passport-photo',
