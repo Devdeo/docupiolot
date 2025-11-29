@@ -11,6 +11,7 @@ import { fileToDataUrl, dataUrlToBlob } from '@/lib/image-utils';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface ToolProps {
   onBack: () => void;
@@ -19,10 +20,21 @@ interface ToolProps {
 
 export function ImageResize({ onBack, title }: ToolProps) {
   const [file, setFile] = useState<File | null>(null);
+  const [originalDimensions, setOriginalDimensions] = useState<{width: number, height: number} | null>(null);
   const [resizedImage, setResizedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Size-based state
   const [targetSize, setTargetSize] = useState('2');
   const [targetUnit, setTargetUnit] = useState('MB');
+  
+  // Dimension-based state
+  const [targetWidth, setTargetWidth] = useState('');
+  const [targetHeight, setTargetHeight] = useState('');
+  const [targetDpi, setTargetDpi] = useState('300');
+  const [keepAspectRatio, setKeepAspectRatio] = useState(true);
+
+
   const [outputFilename, setOutputFilename] = useState('');
   const [outputExtension, setOutputExtension] = useState('jpg');
   const { toast } = useToast();
@@ -30,11 +42,43 @@ export function ImageResize({ onBack, title }: ToolProps) {
   useEffect(() => {
     if (file) {
       const originalName = file.name.substring(0, file.name.lastIndexOf('.'));
-      setOutputFilename(`desized-${originalName}`);
+      setOutputFilename(`resized-${originalName}`);
+
+      const img = document.createElement('img');
+      img.onload = () => {
+        setOriginalDimensions({ width: img.width, height: img.height });
+        setTargetWidth(String(img.width));
+        setTargetHeight(String(img.height));
+        URL.revokeObjectURL(img.src);
+      };
+      img.src = URL.createObjectURL(file);
     }
   }, [file]);
 
-  const handleResize = useCallback(async () => {
+  const handleWidthChange = (value: string) => {
+    setTargetWidth(value);
+    if (keepAspectRatio && originalDimensions) {
+      const numValue = parseInt(value, 10);
+      if (!isNaN(numValue) && numValue > 0) {
+        const aspectRatio = originalDimensions.height / originalDimensions.width;
+        setTargetHeight(String(Math.round(numValue * aspectRatio)));
+      }
+    }
+  };
+
+  const handleHeightChange = (value: string) => {
+    setTargetHeight(value);
+    if (keepAspectRatio && originalDimensions) {
+      const numValue = parseInt(value, 10);
+      if (!isNaN(numValue) && numValue > 0) {
+        const aspectRatio = originalDimensions.width / originalDimensions.height;
+        setTargetWidth(String(Math.round(numValue * aspectRatio)));
+      }
+    }
+  };
+
+
+  const handleResize = useCallback(async (mode: 'size' | 'dimensions') => {
     if (!file) {
       toast({
         variant: 'destructive',
@@ -47,10 +91,10 @@ export function ImageResize({ onBack, title }: ToolProps) {
     setIsProcessing(true);
     setResizedImage(null);
 
+    // Use a short timeout to allow the UI to update to the processing state
     setTimeout(async () => {
       try {
           const photoDataUri = await fileToDataUrl(file);
-          const targetBytes = (parseFloat(targetSize) || 2) * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
           const outputMimeType = `image/${outputExtension === 'jpg' ? 'jpeg' : outputExtension}`;
 
           const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -64,64 +108,74 @@ export function ImageResize({ onBack, title }: ToolProps) {
           const ctx = canvas.getContext('2d');
           if (!ctx) throw new Error('Could not get canvas context');
 
-          let currentWidth = img.width;
-          let currentHeight = img.height;
-          let resizedDataUrl: string | null = null;
-          let finalBlob: Blob | null = null;
-          
-          let dimensionScale = 1.0;
-          const maxDimensionSteps = 20; // Increase steps for more aggressive scaling
+          let resizedDataUrl: string;
+          let finalBlob: Blob;
 
-          for (let i = 0; i < maxDimensionSteps; i++) {
-            currentWidth = Math.round(img.width * dimensionScale);
-            currentHeight = Math.round(img.height * dimensionScale);
-            canvas.width = currentWidth;
-            canvas.height = currentHeight;
-            ctx.drawImage(img, 0, 0, currentWidth, currentHeight);
+          if (mode === 'dimensions') {
+            const width = parseInt(targetWidth, 10);
+            const height = parseInt(targetHeight, 10);
 
-            // Check size at lowest quality for current dimensions
-            const lowestQualityDataUrl = canvas.toDataURL(outputMimeType, 0);
-            const lowestQualityBlob = await dataUrlToBlob(lowestQualityDataUrl);
-
-            if (lowestQualityBlob.size > targetBytes) {
-                // Even at lowest quality, it's too big. Reduce dimensions further.
-                dimensionScale *= 0.9;
-                continue;
-            }
-
-            // Binary search for the best quality at the current dimensions
-            let low = 0;
-            let high = 1.0;
-            let bestQualityUrl = lowestQualityDataUrl;
-            let bestQualityBlob = lowestQualityBlob;
-
-            // More precise binary search
-            for (let j = 0; j < 10; j++) { 
-                const mid = (low + high) / 2;
-                const currentDataUrl = canvas.toDataURL(outputMimeType, mid);
-                const currentBlob = await dataUrlToBlob(currentDataUrl);
-                
-                if (currentBlob.size <= targetBytes) {
-                    bestQualityUrl = currentDataUrl;
-                    bestQualityBlob = currentBlob;
-                    low = mid; 
-                } else {
-                    high = mid; 
-                }
+            if (isNaN(width) || isNaN(height) || width <= 0 || height <= 0) {
+              throw new Error("Invalid dimensions provided.");
             }
             
-            resizedDataUrl = bestQualityUrl;
-            finalBlob = bestQualityBlob;
-            break; // Found a suitable size
-          }
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(img, 0, 0, width, height);
+            resizedDataUrl = canvas.toDataURL(outputMimeType, 0.95); // High quality for dimension resize
+            finalBlob = await dataUrlToBlob(resizedDataUrl);
 
-          if (!resizedDataUrl || !finalBlob) {
-             // Fallback to lowest possible quality if loop finishes
-             canvas.width = Math.round(img.width * dimensionScale);
-             canvas.height = Math.round(img.height * dimensionScale);
-             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-             resizedDataUrl = canvas.toDataURL(outputMimeType, 0);
-             finalBlob = await dataUrlToBlob(resizedDataUrl);
+          } else { // mode === 'size'
+            const targetBytes = (parseFloat(targetSize) || 2) * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
+            
+            let currentWidth = img.width;
+            let currentHeight = img.height;
+            let tempResizedDataUrl: string | null = null;
+            
+            let dimensionScale = 1.0;
+            const maxDimensionSteps = 20;
+
+            for (let i = 0; i < maxDimensionSteps; i++) {
+              currentWidth = Math.round(img.width * dimensionScale);
+              currentHeight = Math.round(img.height * dimensionScale);
+              canvas.width = currentWidth;
+              canvas.height = currentHeight;
+              ctx.drawImage(img, 0, 0, currentWidth, currentHeight);
+
+              const lowestQualityDataUrl = canvas.toDataURL(outputMimeType, 0);
+              const lowestQualityBlob = await dataUrlToBlob(lowestQualityDataUrl);
+
+              if (lowestQualityBlob.size > targetBytes) {
+                  dimensionScale *= 0.9;
+                  continue;
+              }
+
+              let low = 0, high = 1.0, bestQualityUrl = lowestQualityDataUrl;
+              for (let j = 0; j < 10; j++) {
+                  const mid = (low + high) / 2;
+                  const currentDataUrl = canvas.toDataURL(outputMimeType, mid);
+                  const currentBlob = await dataUrlToBlob(currentDataUrl);
+                  
+                  if (currentBlob.size <= targetBytes) {
+                      bestQualityUrl = currentDataUrl;
+                      low = mid; 
+                  } else {
+                      high = mid; 
+                  }
+              }
+              
+              tempResizedDataUrl = bestQualityUrl;
+              break;
+            }
+
+            if (!tempResizedDataUrl) {
+               canvas.width = Math.round(img.width * dimensionScale);
+               canvas.height = Math.round(img.height * dimensionScale);
+               ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+               tempResizedDataUrl = canvas.toDataURL(outputMimeType, 0);
+            }
+            resizedDataUrl = tempResizedDataUrl;
+            finalBlob = await dataUrlToBlob(resizedDataUrl);
           }
 
           setResizedImage(resizedDataUrl);
@@ -142,14 +196,14 @@ export function ImageResize({ onBack, title }: ToolProps) {
           setIsProcessing(false);
       }
     }, 10);
-  }, [file, targetSize, targetUnit, outputExtension, toast]);
+  }, [file, targetSize, targetUnit, outputExtension, toast, targetWidth, targetHeight]);
   
   const handleDownload = () => {
     if (!resizedImage || !file) return;
     const link = document.createElement('a');
     link.href = resizedImage;
     
-    const finalFilename = outputFilename || `desized-${file.name.substring(0, file.name.lastIndexOf('.'))}`
+    const finalFilename = outputFilename || `resized-${file.name.substring(0, file.name.lastIndexOf('.'))}`
     const finalExtension = outputExtension || 'jpg';
     link.download = `${finalFilename}.${finalExtension}`;
 
@@ -162,6 +216,9 @@ export function ImageResize({ onBack, title }: ToolProps) {
     setFile(null);
     setResizedImage(null);
     setIsProcessing(false);
+    setOriginalDimensions(null);
+    setTargetWidth('');
+    setTargetHeight('');
   }
 
   const handleFileSelect = (files: File[]) => {
@@ -218,41 +275,71 @@ export function ImageResize({ onBack, title }: ToolProps) {
                     <div className="relative w-full max-w-xs mx-auto aspect-square">
                         <Image src={URL.createObjectURL(file)} alt="Original image preview" fill className="rounded-md object-contain" />
                     </div>
-                   <h3 className="font-medium">Resize Options</h3>
-                   <div className="space-y-2">
-                     <Label htmlFor="size">Target Size</Label>
-                     <div className="flex gap-2">
-                         <Input id="size" value={targetSize} onChange={(e) => setTargetSize(e.target.value)} placeholder="e.g., 2" type="number" className="w-full" disabled={isProcessing}/>
-                         <Select value={targetUnit} onValueChange={setTargetUnit} disabled={isProcessing}>
-                             <SelectTrigger className="w-[80px]">
-                                 <SelectValue />
-                             </SelectTrigger>
-                             <SelectContent>
-                                 <SelectItem value="KB">KB</SelectItem>
-                                 <SelectItem value="MB">MB</SelectItem>
-                             </SelectContent>
-                         </Select>
-                     </div>
-                   </div>
+                    {originalDimensions && (
+                      <p className="text-center text-sm text-muted-foreground">Original: {originalDimensions.width} x {originalDimensions.height} px</p>
+                    )}
+
+                    <Tabs defaultValue="size" className="w-full">
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="size">By File Size</TabsTrigger>
+                        <TabsTrigger value="dimensions">By Dimensions</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="size" className="pt-4">
+                        <div className="space-y-4">
+                          <Label htmlFor="size">Target File Size</Label>
+                           <div className="flex gap-2">
+                               <Input id="size" value={targetSize} onChange={(e) => setTargetSize(e.target.value)} placeholder="e.g., 2" type="number" className="w-full" disabled={isProcessing}/>
+                               <Select value={targetUnit} onValueChange={setTargetUnit} disabled={isProcessing}>
+                                   <SelectTrigger className="w-[80px]">
+                                       <SelectValue />
+                                   </SelectTrigger>
+                                   <SelectContent>
+                                       <SelectItem value="KB">KB</SelectItem>
+                                       <SelectItem value="MB">MB</SelectItem>
+                                   </SelectContent>
+                               </Select>
+                           </div>
+                           <Button className="w-full" onClick={() => handleResize('size')} disabled={isProcessing}>
+                            Resize by Size
+                          </Button>
+                        </div>
+                      </TabsContent>
+                      <TabsContent value="dimensions" className="pt-4">
+                         <div className="space-y-4">
+                           <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label htmlFor="width">Width (px)</Label>
+                                <Input id="width" value={targetWidth} onChange={(e) => handleWidthChange(e.target.value)} type="number" />
+                              </div>
+                               <div className="space-y-2">
+                                <Label htmlFor="height">Height (px)</Label>
+                                <Input id="height" value={targetHeight} onChange={(e) => handleHeightChange(e.target.value)} type="number" />
+                              </div>
+                           </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="dpi">DPI (optional)</Label>
+                              <Input id="dpi" value={targetDpi} onChange={(e) => setTargetDpi(e.target.value)} type="number" placeholder='e.g. 300' />
+                              <p className='text-xs text-muted-foreground'>DPI is metadata and does not change pixel dimensions.</p>
+                           </div>
+                           <Button className="w-full" onClick={() => handleResize('dimensions')} disabled={isProcessing}>
+                             Resize by Dimensions
+                           </Button>
+                         </div>
+                      </TabsContent>
+                    </Tabs>
                  </div>
                )}
             </div>
           )}
         </CardContent>
         <CardFooter className="flex-col gap-2">
-          {file && !isProcessing && !resizedImage && (
-            <Button className="w-full" size="lg" onClick={handleResize} disabled={isProcessing}>
-              {isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Resizing...</> : 'Resize Image'}
-            </Button>
-          )}
-           {file && resizedImage && !isProcessing && (
-             <Button variant="outline" className="w-full" size="lg" onClick={handleClear} disabled={isProcessing}>Start Over</Button>
-           )}
-           {file && !resizedImage && !isProcessing && (
-              <Button variant="outline" className="w-full" size="lg" onClick={handleClear} disabled={isProcessing}>Clear</Button>
+           {file && !isProcessing && (
+              <Button variant="outline" className="w-full" onClick={handleClear} disabled={isProcessing}>Start Over</Button>
            )}
         </CardFooter>
       </Card>
     </ToolContainer>
   );
 }
+
+    
