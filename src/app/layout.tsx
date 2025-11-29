@@ -52,6 +52,9 @@ export default function RootLayout({
         {!adblockDetected && <GoogleAds />}
       </head>
       <body className="font-body antialiased flex flex-col min-h-screen">
+        {/* Bait element for adblock detection. It's visually hidden but should be in the DOM. */}
+        <div id="ad-banner-bait" style={{ height: '1px', width: '1px', position: 'absolute', left: '-9999px', top: '-9999px' }} />
+
         {adblockDetected ? (
           <AdblockDetectedPage />
         ) : (
