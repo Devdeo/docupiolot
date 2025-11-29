@@ -65,7 +65,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
         
         setProgressMessage(`Analyzing and converting pages...`);
         const pdfjs = await import('pdfjs-dist');
-        pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+        pdfjs.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.js`;
 
         const pdf = await pdfjs.getDocument(existingPdfBytes).promise;
         const pageCount = pdf.numPages;
