@@ -1,18 +1,36 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileUpload } from '../file-upload';
 import { ToolContainer } from './tool-container';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Pen, Eraser, Image as ImageIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 
 interface ToolProps {
   onBack: () => void;
   title: string;
+}
+
+type ToolMode = 'draw' | 'erase' | 'stamp';
+interface Annotation {
+  id: string;
+  type: 'path' | 'image';
+  // For paths
+  path?: [number, number][];
+  color?: string;
+  size?: number;
+  // For images
+  image?: HTMLImageElement;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
 }
 
 export function EditPdf({ onBack, title }: ToolProps) {
@@ -24,44 +42,70 @@ export function EditPdf({ onBack, title }: ToolProps) {
 
   // Drawing state
   const [isDrawing, setIsDrawing] = useState(false);
+  const [activeTool, setActiveTool] = useState<ToolMode>('draw');
   const [brushColor, setBrushColor] = useState('#FF0000');
   const [brushSize, setBrushSize] = useState(5);
-  const [paths, setPaths] = useState<[number, number][]>([]);
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [currentPath, setCurrentPath] = useState<[number, number][]>([]);
+  const [stampImage, setStampImage] = useState<HTMLImageElement | null>(null);
 
-  const getCanvasContext = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    return canvas.getContext('2d');
-  };
+  const getCanvasContext = () => canvasRef.current?.getContext('2d');
 
   const redrawCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
     const ctx = getCanvasContext();
-    if (!ctx || !canvasRef.current) return;
+    if (!ctx || !canvas) return;
     
-    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    if (paths.length === 0) return;
-    
-    ctx.strokeStyle = brushColor;
-    ctx.lineWidth = brushSize;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+    annotations.forEach(anno => {
+      ctx.save();
+      if (anno.type === 'path' && anno.path) {
+        ctx.strokeStyle = anno.color || '#000000';
+        ctx.lineWidth = anno.size || 5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        anno.path.forEach((point, index) => {
+          if (index === 0) {
+            ctx.moveTo(point[0], point[1]);
+          } else {
+            ctx.lineTo(point[0], point[1]);
+          }
+        });
+        ctx.stroke();
+      } else if (anno.type === 'image' && anno.image) {
+         ctx.drawImage(anno.image, anno.x!, anno.y!, anno.width!, anno.height!);
+      }
+      ctx.restore();
+    });
 
-    ctx.beginPath();
-    paths.forEach((path, index) => {
-        if(index > 0 && Math.abs(path[0] - paths[index-1][0]) < 2 && Math.abs(path[1] - paths[index-1][1]) < 2) {
-             ctx.lineTo(path[0], path[1]);
+    // Draw current path if any
+    if (currentPath.length > 1) {
+        ctx.save();
+        if(activeTool === 'erase') {
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.strokeStyle = 'rgba(0,0,0,1)';
         } else {
-             ctx.moveTo(path[0], path[1]);
+            ctx.strokeStyle = brushColor;
         }
-    })
-    ctx.stroke();
+        ctx.lineWidth = brushSize;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        currentPath.forEach((point, index) => {
+            if (index === 0) ctx.moveTo(point[0], point[1]);
+            else ctx.lineTo(point[0], point[1]);
+        });
+        ctx.stroke();
+        ctx.restore();
+    }
 
-  }, [paths, brushColor, brushSize]);
-
+  }, [annotations, currentPath, brushColor, brushSize, activeTool]);
+  
   useEffect(() => {
     redrawCanvas();
-  }, [paths, redrawCanvas]);
+  }, [annotations, currentPath, redrawCanvas]);
 
   const handleFileSelect = async (files: File[]) => {
     const selectedFile = files[0];
@@ -70,7 +114,8 @@ export function EditPdf({ onBack, title }: ToolProps) {
     setFile(selectedFile);
     setIsProcessing(true);
     setPdfPageAsImage(null);
-    setPaths([]);
+    setAnnotations([]);
+    setStampImage(null);
 
     try {
       const pdfjs = await import('pdfjs-dist/build/pdf');
@@ -105,26 +150,114 @@ export function EditPdf({ onBack, title }: ToolProps) {
       setIsProcessing(false);
     }
   };
+
+  const handleImageStampSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                setStampImage(img);
+                setActiveTool('stamp');
+                toast({ title: 'Image Ready', description: 'Click on the PDF to place the image.' });
+            };
+            img.src = event.target?.result as string;
+        }
+        reader.readAsDataURL(file);
+    }
+  }
   
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const { offsetX, offsetY } = e.nativeEvent;
+    if (activeTool === 'stamp' && stampImage) {
+        setAnnotations(prev => [...prev, {
+            id: `anno-${Date.now()}`,
+            type: 'image',
+            image: stampImage,
+            x: offsetX - stampImage.width / 4,
+            y: offsetY - stampImage.height / 4,
+            width: stampImage.width / 2,
+            height: stampImage.height / 2
+        }]);
+        return;
+    }
+
     setIsDrawing(true);
-    setPaths(prev => [...prev, [offsetX, offsetY]]);
+    setCurrentPath([[offsetX, offsetY]]);
   };
   
   const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
+    if (!isDrawing || activeTool === 'stamp') return;
     const { offsetX, offsetY } = e.nativeEvent;
-    setPaths(prev => [...prev, [offsetX, offsetY]]);
+    setCurrentPath(prev => [...prev, [offsetX, offsetY]]);
   };
 
   const stopDrawing = () => {
+    if (!isDrawing) return;
     setIsDrawing(false);
+
+    if (activeTool === 'draw') {
+        setAnnotations(prev => [...prev, {
+            id: `anno-${Date.now()}`,
+            type: 'path',
+            path: currentPath,
+            color: brushColor,
+            size: brushSize
+        }]);
+    } else if (activeTool === 'erase') {
+        const tempCanvas = document.createElement('canvas');
+        if (!canvasRef.current) return;
+        tempCanvas.width = canvasRef.current.width;
+        tempCanvas.height = canvasRef.current.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        if (!tempCtx) return;
+
+        // Draw existing annotations
+        annotations.forEach(anno => {
+            if(anno.type === 'path') {
+                tempCtx.strokeStyle = anno.color!;
+                tempCtx.lineWidth = anno.size!;
+                tempCtx.beginPath();
+                anno.path!.forEach((p, i) => i === 0 ? tempCtx.moveTo(p[0], p[1]) : tempCtx.lineTo(p[0], p[1]));
+                tempCtx.stroke();
+            } else if (anno.type === 'image') {
+                tempCtx.drawImage(anno.image!, anno.x!, anno.y!, anno.width!, anno.height!);
+            }
+        });
+
+        // "Erase" by clearing where the path was
+        tempCtx.globalCompositeOperation = 'destination-out';
+        tempCtx.strokeStyle = 'rgba(0,0,0,1)';
+        tempCtx.lineWidth = brushSize;
+        tempCtx.beginPath();
+        currentPath.forEach((p, i) => i === 0 ? tempCtx.moveTo(p[0], p[1]) : tempCtx.lineTo(p[0], p[1]));
+        tempCtx.stroke();
+
+        // This approach of replacing annotations is a simplification.
+        // A more robust solution would involve more complex image data manipulation or separating annotations into layers.
+        // For now, we clear path annotations and could add image annotations back.
+        const imageAnnos = annotations.filter(a => a.type === 'image');
+        const newImage = new Image();
+        newImage.onload = () => {
+            setAnnotations([...imageAnnos, {
+                 id: `anno-${Date.now()}`,
+                 type: 'image',
+                 image: newImage,
+                 x: 0, y: 0,
+                 width: tempCanvas.width,
+                 height: tempCanvas.height
+            }]);
+        }
+        newImage.src = tempCanvas.toDataURL();
+    }
+
+    setCurrentPath([]);
   };
 
   const handleSave = async () => {
-    if (!file || !canvasRef.current || paths.length === 0) {
-        toast({ variant: 'destructive', title: 'Nothing to save', description: 'Draw on the PDF to save your changes.' });
+    if (!file || !canvasRef.current || annotations.length === 0) {
+        toast({ variant: 'destructive', title: 'Nothing to save', description: 'Draw on or stamp the PDF to save your changes.' });
         return;
     }
 
@@ -134,8 +267,15 @@ export function EditPdf({ onBack, title }: ToolProps) {
         const pdfDoc = await PDFDocument.load(existingPdfBytes);
         const page = pdfDoc.getPages()[0]; // Edit first page
 
-        const drawingCanvas = canvasRef.current;
-        const pngImageBytes = await fetch(drawingCanvas.toDataURL('image/png')).then(res => res.arrayBuffer());
+        const drawingCanvas = document.createElement('canvas');
+        drawingCanvas.width = canvasRef.current.width;
+        drawingCanvas.height = canvasRef.current.height;
+        const ctx = drawingCanvas.getContext('2d');
+        if (!ctx) return;
+        
+        redrawCanvas(); // Redraw annotations on the main canvas
+        const finalCanvas = canvasRef.current;
+        const pngImageBytes = await fetch(finalCanvas.toDataURL('image/png')).then(res => res.arrayBuffer());
         const pngImage = await pdfDoc.embedPng(pngImageBytes);
 
         page.drawImage(pngImage, {
@@ -165,13 +305,18 @@ export function EditPdf({ onBack, title }: ToolProps) {
         setIsProcessing(false);
     }
   }
+  
+  const handleClearAll = () => {
+      setAnnotations([]);
+      setCurrentPath([]);
+  }
 
   return (
     <ToolContainer title={title} onBack={onBack}>
       <Card className="w-full shadow-lg">
         <CardHeader>
           <CardTitle>Upload PDF to Edit</CardTitle>
-          <CardDescription>Our editor is currently in beta. Freehand drawing on the first page is supported.</CardDescription>
+          <CardDescription>Freehand drawing, erasing, and image stamping on the first page is supported.</CardDescription>
         </CardHeader>
         <CardContent>
           {!file ? (
@@ -183,19 +328,45 @@ export function EditPdf({ onBack, title }: ToolProps) {
              </div>
           ) : (
             <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-4 p-2 border rounded-md">
-                <div className="space-y-1">
-                  <Label htmlFor='brush-color'>Brush Color</Label>
-                  <Input id="brush-color" type="color" value={brushColor} onChange={e => setBrushColor(e.target.value)} className="w-16 p-1"/>
-                </div>
-                <div className="flex-1 space-y-1">
-                  <Label htmlFor='brush-size'>Brush Size ({brushSize}px)</Label>
-                  <Input id="brush-size" type="range" min="1" max="50" value={brushSize} onChange={e => setBrushSize(parseInt(e.target.value))} />
-                </div>
-                <Button variant="outline" size="sm" onClick={() => setPaths([])} disabled={paths.length === 0}>Clear Drawing</Button>
-              </div>
+               <Tabs value={activeTool} onValueChange={(v) => setActiveTool(v as ToolMode)} className="w-full">
+                    <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="draw"><Pen className='mr-2'/>Draw</TabsTrigger>
+                        <TabsTrigger value="erase"><Eraser className='mr-2'/>Erase</TabsTrigger>
+                        <TabsTrigger value="stamp" asChild>
+                            <label htmlFor='image-stamp-input' className='flex items-center justify-center cursor-pointer'><ImageIcon className='mr-2'/>Image</label>
+                        </TabsTrigger>
+                         <Input id='image-stamp-input' type='file' accept="image/*" className='hidden' onChange={handleImageStampSelect}/>
+                    </TabsList>
+                    <TabsContent value="draw" className="p-4 border rounded-b-md mt-0">
+                         <div className="flex flex-wrap items-center gap-4">
+                            <div className="space-y-1">
+                            <Label htmlFor='brush-color'>Brush Color</Label>
+                            <Input id="brush-color" type="color" value={brushColor} onChange={e => setBrushColor(e.target.value)} className="w-16 p-1"/>
+                            </div>
+                            <div className="flex-1 space-y-1">
+                            <Label htmlFor='brush-size'>Brush Size ({brushSize}px)</Label>
+                            <Input id="brush-size" type="range" min="1" max="50" value={brushSize} onChange={e => setBrushSize(parseInt(e.target.value))} />
+                            </div>
+                        </div>
+                    </TabsContent>
+                    <TabsContent value="erase" className="p-4 border rounded-b-md mt-0">
+                         <div className="flex-1 space-y-1">
+                            <Label htmlFor='eraser-size'>Eraser Size ({brushSize}px)</Label>
+                            <Input id="eraser-size" type="range" min="1" max="100" value={brushSize} onChange={e => setBrushSize(parseInt(e.target.value))} />
+                        </div>
+                    </TabsContent>
+                     <TabsContent value="stamp" className="p-4 border rounded-b-md mt-0 text-center">
+                         {stampImage ? <p className='text-sm text-muted-foreground'>Click on the PDF to place your image.</p> : <p className='text-sm text-muted-foreground'>Upload an image to get started.</p>}
+                    </TabsContent>
+                </Tabs>
+
               <div 
-                className="relative w-full mx-auto aspect-[4/5] bg-muted rounded-lg overflow-hidden cursor-crosshair"
+                className={cn(
+                    "relative w-full mx-auto aspect-[4/5] bg-muted rounded-lg overflow-hidden",
+                    activeTool === 'draw' && 'cursor-crosshair',
+                    activeTool === 'erase' && 'cursor-grab',
+                    activeTool === 'stamp' && stampImage && 'cursor-copy'
+                )}
                 style={{
                   backgroundImage: `url(${pdfPageAsImage})`,
                   backgroundSize: 'contain',
@@ -212,17 +383,18 @@ export function EditPdf({ onBack, title }: ToolProps) {
                   onMouseLeave={stopDrawing}
                 />
               </div>
+               <Button variant="outline" size="sm" onClick={handleClearAll} disabled={annotations.length === 0}>Clear All Annotations</Button>
             </div>
           )}
         </CardContent>
         <CardFooter className="flex-col gap-2">
           {file && !isProcessing && (
-             <Button className="w-full" size="lg" onClick={handleSave} disabled={paths.length === 0}>
+             <Button className="w-full" size="lg" onClick={handleSave} disabled={annotations.length === 0}>
                 Save & Download PDF
              </Button>
           )}
            {file && !isProcessing && (
-             <Button variant="outline" className="w-full" onClick={() => {setFile(null); setPdfPageAsImage(null); setPaths([]);}}>
+             <Button variant="outline" className="w-full" onClick={() => {setFile(null); setPdfPageAsImage(null); setAnnotations([]);}}>
                 Start Over
              </Button>
            )}
