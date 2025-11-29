@@ -62,20 +62,18 @@ export function PdfResize({ onBack, title }: ToolProps) {
       try {
         const targetBytes = (parseFloat(targetSize) || 2) * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
         const existingPdfBytes = await file.arrayBuffer();
-        const pdfDoc = await PDFDocument.load(existingPdfBytes, { ignoreEncryption: true });
         
-        const pageCount = pdfDoc.getPageCount();
-        const pageImages: {img: HTMLImageElement, width: number, height: number}[] = [];
-
         // 1. Convert all pages to images
-        setProgressMessage(`Analyzing and converting ${pageCount} pages...`);
+        setProgressMessage(`Analyzing and converting pages...`);
         const pdfjs = await import('pdfjs-dist');
-        const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.min.mjs');
-        pdfjs.GlobalWorkerOptions.workerSrc = (pdfjsWorker as any).default;
+        pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
         const pdf = await pdfjs.getDocument(existingPdfBytes).promise;
+        const pageCount = pdf.numPages;
+        const pageImages: {img: HTMLImageElement, width: number, height: number}[] = [];
 
         for (let i = 0; i < pageCount; i++) {
+            setProgressMessage(`Converting page ${i + 1} of ${pageCount}`);
             const page = await pdf.getPage(i + 1);
             const viewport = page.getViewport({ scale: 2.0 }); // Render at high res for quality
             
@@ -93,7 +91,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
             await new Promise(resolve => { img.onload = resolve; });
             pageImages.push({img, width: viewport.width, height: viewport.height});
         }
-        pdf.destroy();
+        await pdf.destroy();
 
         // 2. Iteratively resize and re-assemble to meet target size
         setProgressMessage('Compressing pages...');
@@ -129,7 +127,42 @@ export function PdfResize({ onBack, title }: ToolProps) {
           setProgressMessage(`Iteration ${i+1}: Current size ${formatBytes(finalPdfBytes.length)}`);
 
           if (finalPdfBytes.length <= targetBytes) {
-            break; // We are under the target size
+            // We are under the target size, try to improve quality
+            let low = quality;
+            let high = 1.0;
+            let bestBytes = finalPdfBytes;
+
+            for(let j = 0; j < 5; j++) { // 5 steps of binary search for quality
+                 const midQuality = (low + high) / 2;
+                 const qualityPdfDoc = await PDFDocument.create();
+                 for (const pageImage of pageImages) {
+                     const canvas = document.createElement('canvas');
+                     const ctx = canvas.getContext('2d');
+                     if (!ctx) throw new Error('Could not get canvas context');
+                     
+                     const newWidth = Math.round(pageImage.width * scale);
+                     const newHeight = Math.round(pageImage.height * scale);
+                     canvas.width = newWidth;
+                     canvas.height = newHeight;
+                     ctx.drawImage(pageImage.img, 0, 0, newWidth, newHeight);
+                     
+                     const resizedDataUrl = canvas.toDataURL('image/jpeg', midQuality);
+                     const imageBytes = await fetch(resizedDataUrl).then(res => res.arrayBuffer());
+                     const image = await qualityPdfDoc.embedJpg(imageBytes);
+
+                     const page = qualityPdfDoc.addPage([newWidth, newHeight]);
+                     page.drawImage(image, { x: 0, y: 0, width: newWidth, height: newHeight });
+                 }
+                 const qualityPdfBytes = await qualityPdfDoc.save();
+                 if (qualityPdfBytes.length <= targetBytes) {
+                     bestBytes = qualityPdfBytes;
+                     low = midQuality;
+                 } else {
+                     high = midQuality;
+                 }
+            }
+            finalPdfBytes = bestBytes;
+            break;
           }
 
           // If not, reduce quality first, then scale
@@ -144,8 +177,10 @@ export function PdfResize({ onBack, title }: ToolProps) {
           }
         }
         
-        if (!finalPdfBytes) {
-          throw new Error("Could not generate a compressed PDF.");
+        if (!finalPdfBytes || finalPdfBytes.length > targetBytes) {
+          // If after all that it is still too big, it means the smallest possible version is still over the target.
+          // We return the smallest we could make.
+           if(!finalPdfBytes) throw new Error("Could not generate a compressed PDF.");
         }
 
         setResizedPdf(finalPdfBytes);
