@@ -14,7 +14,7 @@ interface FileUploadProps {
 export function FileUpload({
   onFileSelect,
   acceptedFileTypes = [],
-  maxSize = 50 * 1024 * 1024, // 50MB default
+  maxSize, // Removed default
 }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +29,7 @@ export function FileUpload({
     (selectedFile: File | null) => {
       setError(null);
       if (selectedFile) {
-        if (selectedFile.size > maxSize) {
+        if (maxSize && selectedFile.size > maxSize) {
           setError(`File is too large. Max size is ${maxSize / 1024 / 1024}MB.`);
           setFile(null);
           onFileSelect(null);

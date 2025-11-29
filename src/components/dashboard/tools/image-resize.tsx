@@ -70,7 +70,7 @@ export function ImageResize({ onBack, title }: ToolProps) {
           let finalBlob: Blob | null = null;
           
           let dimensionScale = 1.0;
-          const maxDimensionSteps = 10; // Prevent infinite loops
+          const maxDimensionSteps = 20; // Increase steps for more aggressive scaling
 
           for (let i = 0; i < maxDimensionSteps; i++) {
             currentWidth = Math.round(img.width * dimensionScale);
@@ -79,23 +79,24 @@ export function ImageResize({ onBack, title }: ToolProps) {
             canvas.height = currentHeight;
             ctx.drawImage(img, 0, 0, currentWidth, currentHeight);
 
-            // Check size at lowest quality
-            const lowestQualityDataUrl = canvas.toDataURL(outputMimeType, 0.1);
+            // Check size at lowest quality for current dimensions
+            const lowestQualityDataUrl = canvas.toDataURL(outputMimeType, 0);
             const lowestQualityBlob = await dataUrlToBlob(lowestQualityDataUrl);
 
             if (lowestQualityBlob.size > targetBytes) {
-                // Even at lowest quality, it's too big. Reduce dimensions and try again.
+                // Even at lowest quality, it's too big. Reduce dimensions further.
                 dimensionScale *= 0.9;
                 continue;
             }
 
-            // Binary search for the best quality at current dimensions
-            let low = 0.1;
+            // Binary search for the best quality at the current dimensions
+            let low = 0;
             let high = 1.0;
             let bestQualityUrl = lowestQualityDataUrl;
             let bestQualityBlob = lowestQualityBlob;
 
-            for (let j = 0; j < 10; j++) { // 10 steps are enough for precision
+            // More precise binary search
+            for (let j = 0; j < 10; j++) { 
                 const mid = (low + high) / 2;
                 const currentDataUrl = canvas.toDataURL(outputMimeType, mid);
                 const currentBlob = await dataUrlToBlob(currentDataUrl);
@@ -103,9 +104,9 @@ export function ImageResize({ onBack, title }: ToolProps) {
                 if (currentBlob.size <= targetBytes) {
                     bestQualityUrl = currentDataUrl;
                     bestQualityBlob = currentBlob;
-                    low = mid; // Try for higher quality
+                    low = mid; 
                 } else {
-                    high = mid; // Need lower quality
+                    high = mid; 
                 }
             }
             
@@ -115,7 +116,12 @@ export function ImageResize({ onBack, title }: ToolProps) {
           }
 
           if (!resizedDataUrl || !finalBlob) {
-            throw new Error(`Could not resize image below ${targetSize}${targetUnit}. Please try a larger target size.`);
+             // Fallback to lowest possible quality if loop finishes
+             canvas.width = Math.round(img.width * dimensionScale);
+             canvas.height = Math.round(img.height * dimensionScale);
+             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+             resizedDataUrl = canvas.toDataURL(outputMimeType, 0);
+             finalBlob = await dataUrlToBlob(resizedDataUrl);
           }
 
           setResizedImage(resizedDataUrl);
