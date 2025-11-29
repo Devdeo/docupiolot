@@ -32,7 +32,6 @@ export function ImageResize({ onBack, title }: ToolProps) {
   const [targetWidth, setTargetWidth] = useState('');
   const [targetHeight, setTargetHeight] = useState('');
   const [targetDpi, setTargetDpi] = useState('300');
-  const [keepAspectRatio, setKeepAspectRatio] = useState(true);
 
 
   const [outputFilename, setOutputFilename] = useState('');
@@ -57,22 +56,26 @@ export function ImageResize({ onBack, title }: ToolProps) {
 
   const handleWidthChange = (value: string) => {
     setTargetWidth(value);
-    if (keepAspectRatio && originalDimensions) {
+    if (originalDimensions) {
       const numValue = parseInt(value, 10);
       if (!isNaN(numValue) && numValue > 0) {
         const aspectRatio = originalDimensions.height / originalDimensions.width;
         setTargetHeight(String(Math.round(numValue * aspectRatio)));
+      } else if (value === '') {
+        setTargetHeight('');
       }
     }
   };
 
   const handleHeightChange = (value: string) => {
     setTargetHeight(value);
-    if (keepAspectRatio && originalDimensions) {
+    if (originalDimensions) {
       const numValue = parseInt(value, 10);
       if (!isNaN(numValue) && numValue > 0) {
         const aspectRatio = originalDimensions.width / originalDimensions.height;
         setTargetWidth(String(Math.round(numValue * aspectRatio)));
+      } else if (value === '') {
+        setTargetWidth('');
       }
     }
   };
@@ -341,5 +344,3 @@ export function ImageResize({ onBack, title }: ToolProps) {
     </ToolContainer>
   );
 }
-
-    
