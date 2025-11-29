@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import JSZip from 'jszip';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { useInterstitialAd } from '@/hooks/use-interstitial-ad';
 
 interface ToolProps {
   onBack: () => void;
@@ -23,6 +24,7 @@ export function PptToPdf({ onBack, title }: ToolProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
+  const { showAd } = useInterstitialAd();
   
   const handleFileSelect = (files: File[]) => {
     setFile(files[0] || null);
@@ -111,6 +113,8 @@ export function PptToPdf({ onBack, title }: ToolProps) {
 
       const pdfBytes = await pdfDoc.save();
       
+      await showAd();
+
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);

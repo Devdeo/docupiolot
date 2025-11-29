@@ -9,6 +9,7 @@ import { FileUpload } from '../file-upload';
 import { ToolContainer } from './tool-container';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { useInterstitialAd } from '@/hooks/use-interstitial-ad';
 
 interface ToolProps {
   onBack: () => void;
@@ -21,6 +22,7 @@ export function ImageConverter({ onBack, title }: ToolProps) {
   const [isConverting, setIsConverting] = useState(false);
   const [convertedImage, setConvertedImage] = useState<string | null>(null);
   const { toast } = useToast();
+  const { showAd } = useInterstitialAd();
   
   const handleFileSelect = (files: File[]) => {
     setFile(files[0] || null);
@@ -81,13 +83,16 @@ export function ImageConverter({ onBack, title }: ToolProps) {
 
   const handleDownload = () => {
     if (!convertedImage || !file) return;
-    const link = document.createElement('a');
-    link.href = convertedImage;
-    const originalName = file.name.substring(0, file.name.lastIndexOf('.'));
-    link.download = `${originalName}.${outputFormat}`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+
+    showAd().then(() => {
+        const link = document.createElement('a');
+        link.href = convertedImage;
+        const originalName = file.name.substring(0, file.name.lastIndexOf('.'));
+        link.download = `${originalName}.${outputFormat}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    });
   };
 
   return (

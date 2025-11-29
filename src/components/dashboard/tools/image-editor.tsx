@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useInterstitialAd } from '@/hooks/use-interstitial-ad';
 
 interface ToolProps {
   onBack: () => void;
@@ -27,6 +28,7 @@ export function ImageEditor({ onBack, title }: ToolProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const { toast } = useToast();
+  const { showAd } = useInterstitialAd();
 
   // Editing state
   const [brightness, setBrightness] = useState([100]);
@@ -158,11 +160,13 @@ export function ImageEditor({ onBack, title }: ToolProps) {
         return;
     }
 
-    const link = document.createElement('a');
-    link.download = `edited-${file.name || 'image.png'}`;
-    link.href = canvas.toDataURL();
-    link.click();
-    toast({ title: 'Image Saved', description: 'Your edited image has been downloaded.' });
+    showAd().then(() => {
+        const link = document.createElement('a');
+        link.download = `edited-${file.name || 'image.png'}`;
+        link.href = canvas.toDataURL();
+        link.click();
+        toast({ title: 'Image Saved', description: 'Your edited image has been downloaded.' });
+    });
   };
 
   const handleReset = () => {

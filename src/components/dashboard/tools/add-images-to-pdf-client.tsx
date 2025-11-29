@@ -11,6 +11,7 @@ import { FileUpload } from '../file-upload';
 import { ToolContainer } from './tool-container';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
+import { useInterstitialAd } from '@/hooks/use-interstitial-ad';
 
 interface ToolProps {
   onBack: () => void;
@@ -27,6 +28,7 @@ export default function AddImagesToPdfClient({ onBack, title }: ToolProps) {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
+  const { showAd } = useInterstitialAd();
 
   const generatePreviews = useCallback(async (file: File): Promise<string> => {
     if (file.type.startsWith('image/')) {
@@ -152,6 +154,9 @@ export default function AddImagesToPdfClient({ onBack, title }: ToolProps) {
       }
 
       const pdfBytes = await pdfDoc.save();
+      
+      await showAd();
+
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);

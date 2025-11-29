@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import { useInterstitialAd } from '@/hooks/use-interstitial-ad';
 
 interface ToolProps {
   onBack: () => void;
@@ -28,6 +29,7 @@ export default function PdfStamperClient({ onBack, title }: ToolProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
+  const { showAd } = useInterstitialAd();
 
   // Page numbering state
   const [numberPosition, setNumberPosition] = useState<Position>('bottom-center');
@@ -108,6 +110,9 @@ export default function PdfStamperClient({ onBack, title }: ToolProps) {
       }
 
       const pdfBytes = await pdfDoc.save();
+
+      await showAd();
+
       downloadPdf(pdfBytes, `${mode}-applied-${file.name}`);
       toast({ title: 'Success', description: `Your PDF has been updated and downloaded.` });
 

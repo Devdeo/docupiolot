@@ -4,6 +4,7 @@ import { PDFDocument } from 'pdf-lib';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Trash2, GripVertical } from 'lucide-react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
+import { useInterstitialAd } from '@/hooks/use-interstitial-ad';
 
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ export function PdfPageRemover({ onBack, title }: ToolProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingPdf, setIsLoadingPdf] = useState(false);
   const { toast } = useToast();
+  const { showAd } = useInterstitialAd();
 
   useEffect(() => {
     // Clean up object URLs when the component unmounts or file changes
@@ -125,6 +127,8 @@ export function PdfPageRemover({ onBack, title }: ToolProps) {
       });
 
       const pdfBytes = await newPdfDoc.save();
+
+      await showAd();
 
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const link = document.createElement('a');

@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { useInterstitialAd } from '@/hooks/use-interstitial-ad';
 
 interface ToolProps {
   onBack: () => void;
@@ -39,6 +40,7 @@ export function EditPdf({ onBack, title }: ToolProps) {
   const [pdfPageAsImage, setPdfPageAsImage] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
+  const { showAd } = useInterstitialAd();
 
   // Drawing state
   const [isDrawing, setIsDrawing] = useState(false);
@@ -287,6 +289,8 @@ export function EditPdf({ onBack, title }: ToolProps) {
 
         const pdfBytes = await pdfDoc.save();
         
+        await showAd();
+
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);

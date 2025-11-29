@@ -8,6 +8,7 @@ import { FileUpload } from '../file-upload';
 import { ToolContainer } from './tool-container';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { useInterstitialAd } from '@/hooks/use-interstitial-ad';
 
 interface ToolProps {
   onBack: () => void;
@@ -26,6 +27,7 @@ export function ExcelToPdf({ onBack, title }: ToolProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
+  const { showAd } = useInterstitialAd();
   
   const handleFileSelect = (files: File[]) => {
     setFile(files[0] || null);
@@ -124,6 +126,8 @@ export function ExcelToPdf({ onBack, title }: ToolProps) {
 
         const pdfBytes = await pdfDoc.save();
         
+        await showAd();
+
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);

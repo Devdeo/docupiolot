@@ -7,6 +7,8 @@ import { GoogleAnalytics } from '@/components/analytics/google-analytics';
 import { GoogleAds } from '@/components/analytics/google-ads';
 import { useAdblockDetector } from '@/hooks/use-adblock-detector';
 import AdblockDetectedPage from './adblock-detected/page';
+import { InterstitialAdProvider } from '@/hooks/use-interstitial-ad';
+import { InterstitialAd } from '@/components/analytics/interstitial-ad';
 
 // Metadata is now exported from a client component, which is not ideal for SEO.
 // This is a tradeoff for the adblock detection logic residing in the root layout.
@@ -58,12 +60,13 @@ export default function RootLayout({
         {adblockDetected ? (
           <AdblockDetectedPage />
         ) : (
-          <>
+          <InterstitialAdProvider>
             <Header />
             <main className="flex-grow">{children}</main>
             <Footer />
             <Toaster />
-          </>
+            <InterstitialAd />
+          </InterstitialAdProvider>
         )}
       </body>
     </html>

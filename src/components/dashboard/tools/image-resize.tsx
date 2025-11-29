@@ -13,6 +13,7 @@ import { Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useInterstitialAd } from '@/hooks/use-interstitial-ad';
 
 interface ToolProps {
   onBack: () => void;
@@ -24,6 +25,7 @@ export function ImageResize({ onBack, title }: ToolProps) {
   const [originalDimensions, setOriginalDimensions] = useState<{width: number, height: number} | null>(null);
   const [resizedImage, setResizedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const { showAd } = useInterstitialAd();
   
   // Size-based state
   const [targetSize, setTargetSize] = useState('2');
@@ -205,16 +207,19 @@ export function ImageResize({ onBack, title }: ToolProps) {
   
   const handleDownload = () => {
     if (!resizedImage || !file) return;
-    const link = document.createElement('a');
-    link.href = resizedImage;
-    
-    const finalFilename = outputFilename || `resized-${file.name.substring(0, file.name.lastIndexOf('.'))}`
-    const finalExtension = outputExtension || 'jpg';
-    link.download = `${finalFilename}.${finalExtension}`;
 
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    showAd().then(() => {
+        const link = document.createElement('a');
+        link.href = resizedImage;
+        
+        const finalFilename = outputFilename || `resized-${file.name.substring(0, file.name.lastIndexOf('.'))}`
+        const finalExtension = outputExtension || 'jpg';
+        link.download = `${finalFilename}.${finalExtension}`;
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    });
   }
 
   const handleClear = () => {

@@ -12,6 +12,7 @@ import { PDFDocument } from 'pdf-lib';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { useInterstitialAd } from '@/hooks/use-interstitial-ad';
 
 
 interface ToolProps {
@@ -29,6 +30,7 @@ export default function PdfCompressClient({ onBack, title }: ToolProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [outputFilename, setOutputFilename] = useState('');
   const { toast } = useToast();
+  const { showAd } = useInterstitialAd();
   
   // Size-based state
   const [targetSize, setTargetSize] = useState('2');
@@ -244,14 +246,17 @@ export default function PdfCompressClient({ onBack, title }: ToolProps) {
 
   const handleDownload = () => {
     if (!resizedPdf || !file) return;
-    const blob = new Blob([resizedPdf], { type: 'application/pdf' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `${outputFilename || `compressed-${file.name.substring(0, file.name.lastIndexOf('.'))}`}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(link.href);
+    
+    showAd().then(() => {
+        const blob = new Blob([resizedPdf], { type: 'application/pdf' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${outputFilename || `compressed-${file.name.substring(0, file.name.lastIndexOf('.'))}`}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+    });
   };
 
   const handleClear = () => {

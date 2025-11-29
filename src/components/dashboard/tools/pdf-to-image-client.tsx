@@ -9,6 +9,7 @@ import { ToolContainer } from './tool-container';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import JSZip from 'jszip';
+import { useInterstitialAd } from '@/hooks/use-interstitial-ad';
 
 interface ToolProps {
   onBack: () => void;
@@ -21,6 +22,7 @@ export default function PdfToImageClient({ onBack, title }: ToolProps) {
   const [isConverting, setIsConverting] = useState(false);
   const [convertedImages, setConvertedImages] = useState<string[] | null>(null);
   const { toast } = useToast();
+  const { showAd } = useInterstitialAd();
 
   const handleFileSelect = (files: File[]) => {
     setFile(files[0] || null);
@@ -36,6 +38,7 @@ export default function PdfToImageClient({ onBack, title }: ToolProps) {
 
   const handleDownload = async () => {
     if (convertedImages && convertedImages.length > 0) {
+      await showAd();
       const zip = new JSZip();
       convertedImages.forEach((dataUrl, index) => {
         const imageData = dataUrl.split(',')[1];

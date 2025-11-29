@@ -14,6 +14,7 @@ import { PDFDocument, rgb } from 'pdf-lib';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useInterstitialAd } from '@/hooks/use-interstitial-ad';
 
 
 interface ToolProps {
@@ -79,6 +80,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
   const [imageSpacing, setImageSpacing] = useState(4);
   
   const { toast } = useToast();
+  const { showAd } = useInterstitialAd();
 
   const getAspectRatio = useCallback(() => {
     const { width, height } = countries[country];
@@ -427,6 +429,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
     setIsProcessing(true);
 
     try {
+        await showAd();
         const pdfDoc = await PDFDocument.create();
         const page = pdfDoc.addPage([A4_WIDTH_PT, A4_HEIGHT_PT]);
 
