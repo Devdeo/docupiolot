@@ -20,6 +20,7 @@ import { ExcelToPdf } from './tools/excel-to-pdf';
 import { PptToPdf } from './tools/ppt-to-pdf';
 import { PsdToPdf } from './tools/psd-to-pdf';
 import { PdfPageRemover } from './tools/pdf-page-remover';
+import { PdfStamper } from './tools/pdf-stamper';
 
 type ToolWithComponent = Tool & {
   component: React.ComponentType<{ onBack: () => void; title: string }>;
@@ -44,6 +45,7 @@ const toolComponents: Record<
   'ppt-to-pdf': PptToPdf,
   'psd-to-pdf': PsdToPdf,
   'organize-pdf-pages': PdfPageRemover,
+  'pdf-stamper': PdfStamper,
 };
 
 const tools: ToolWithComponent[] = toolDefinitions.map((tool) => ({

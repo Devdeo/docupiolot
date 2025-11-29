@@ -13,6 +13,7 @@ import {
   Shrink,
   FileMinus,
   LayoutGrid,
+  Stamp,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -77,6 +78,12 @@ export const tools: Tool[] = [
     title: 'Organize PDF Pages',
     description: 'Reorder, rotate, and delete pages from a PDF.',
     icon: LayoutGrid,
+  },
+  {
+    id: 'pdf-stamper',
+    title: 'PDF Stamper',
+    description: 'Add page numbers and watermarks to your PDF.',
+    icon: Stamp,
   },
   {
     id: 'convert-from-pdf',
