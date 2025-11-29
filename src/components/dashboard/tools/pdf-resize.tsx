@@ -9,6 +9,7 @@ import { ToolContainer } from './tool-container';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { PDFDocument } from 'pdf-lib';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface ToolProps {
   onBack: () => void;
@@ -23,6 +24,9 @@ export function PdfResize({ onBack, title }: ToolProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [outputFilename, setOutputFilename] = useState('');
   const { toast } = useToast();
+  const [targetSize, setTargetSize] = useState('2');
+  const [targetUnit, setTargetUnit] = useState('MB');
+  const [dpi, setDpi] = useState('150');
 
   useEffect(() => {
     if (file) {
@@ -35,7 +39,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
     }
   }, [file]);
 
-  const handleCompress = async () => {
+  const handleResize = async () => {
     if (!file) {
       toast({
         variant: 'destructive',
@@ -51,7 +55,10 @@ export function PdfResize({ onBack, title }: ToolProps) {
 
     try {
       const existingPdfBytes = await file.arrayBuffer();
-      const pdfDoc = await PDFDocument.load(existingPdfBytes);
+      const pdfDoc = await PDFDocument.load(existingPdfBytes, { 
+        // Some PDFs have issues that can be ignored
+        ignoreEncryption: true 
+      });
 
       // This is a "best-effort" compression. The most reliable way to reduce size
       // with pdf-lib is to re-save the document, which can optimize the structure
@@ -65,7 +72,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
         // It's okay if there's no form to flatten.
         console.warn("No form to flatten or an error occurred during flattening.", error);
       }
-
+      
       const compressedPdfBytes = await pdfDoc.save();
       const newSize = compressedPdfBytes.length;
 
@@ -74,7 +81,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
 
       toast({
         title: 'Compression Complete',
-        description: `The PDF has been processed.`,
+        description: `The PDF has been processed. Check the new file size.`,
       });
 
     } catch (error) {
@@ -126,7 +133,9 @@ export function PdfResize({ onBack, title }: ToolProps) {
         <CardContent className="space-y-6">
           {!file || (!isProcessing && !resizedPdf) ? (
             <FileUpload onFileSelect={(f) => { setFile(f); setResizedPdf(null); }} acceptedFileTypes={['application/pdf']} />
-          ) : (
+          ) : null}
+
+          {file && (isProcessing || resizedPdf) ? (
              <div className="flex flex-col items-center gap-4 text-center">
                 {isProcessing ? (
                   <>
@@ -150,10 +159,37 @@ export function PdfResize({ onBack, title }: ToolProps) {
                   </div>
                 )}
              </div>
+          ) : null }
+          
+          {file && !isProcessing && !resizedPdf && (
+            <div className="space-y-4">
+              <h3 className="font-medium">Resize Options</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="size">Target Size</Label>
+                  <div className="flex gap-2">
+                      <Input id="size" value={targetSize} onChange={(e) => setTargetSize(e.target.value)} placeholder="e.g., 2" type="number" className="w-full" disabled={!file || isProcessing}/>
+                      <Select value={targetUnit} onValueChange={setTargetUnit} disabled={!file || isProcessing}>
+                          <SelectTrigger className="w-[80px]">
+                              <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="KB">KB</SelectItem>
+                              <SelectItem value="MB">MB</SelectItem>
+                          </SelectContent>
+                      </Select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="quality">Quality (DPI)</Label>
+                  <Input id="quality" value={dpi} onChange={(e) => setDpi(e.target.value)} placeholder="e.g., 150" type="number" disabled={!file || isProcessing} />
+                </div>
+              </div>
+            </div>
           )}
         </CardContent>
         <CardFooter className="flex-col gap-2">
-          <Button className="w-full" size="lg" onClick={handleCompress} disabled={!file || isProcessing}>
+          <Button className="w-full" size="lg" onClick={handleResize} disabled={!file || isProcessing}>
             {isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Compressing...</> : 'Compress PDF'}
           </Button>
           <Button variant="outline" className="w-full" size="lg" onClick={handleClear} disabled={isProcessing}>Clear</Button>
