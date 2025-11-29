@@ -14,6 +14,7 @@ import {
   FileMinus,
   LayoutGrid,
   Stamp,
+  Wand2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -30,6 +31,12 @@ export const tools: Tool[] = [
     title: 'Image Resizer',
     description: 'Adjust image size and DPI with ease.',
     icon: Scaling,
+  },
+  {
+    id: 'image-editor',
+    title: 'Edit Image',
+    description: 'Apply filters, adjustments, and rotate your images.',
+    icon: Wand2,
   },
   {
     id: 'pdf-compress',

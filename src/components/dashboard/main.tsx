@@ -22,6 +22,7 @@ import { PsdToPdf } from './tools/psd-to-pdf';
 import { PdfPageRemover } from './tools/pdf-page-remover';
 import { PdfStamper } from './tools/pdf-stamper';
 import { PdfToWord } from './tools/pdf-to-word';
+import { ImageEditor } from './tools/image-editor';
 
 type ToolWithComponent = Tool & {
   component: React.ComponentType<{ onBack: () => void; title: string }>;
@@ -32,6 +33,7 @@ const toolComponents: Record<
   React.ComponentType<{ onBack: () => void; title: string }>
 > = {
   'image-resize': ImageResize,
+  'image-editor': ImageEditor,
   'pdf-compress': PdfCompress,
   'convert-from-pdf': ConvertFromPdf,
   'convert-to-pdf': ConvertToPdf,
