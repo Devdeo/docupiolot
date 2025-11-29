@@ -84,7 +84,7 @@ export function ImageResize({ onBack, title }: ToolProps) {
             const lowestQualityBlob = await dataUrlToBlob(lowestQualityDataUrl);
 
             if (lowestQualityBlob.size > targetBytes) {
-                // Even at lowest quality, it's too big. Reduce dimensions.
+                // Even at lowest quality, it's too big. Reduce dimensions and try again.
                 dimensionScale *= 0.9;
                 continue;
             }
@@ -210,7 +210,7 @@ export function ImageResize({ onBack, title }: ToolProps) {
                {!isProcessing && !resizedImage && file && (
                  <div className="w-full space-y-4">
                     <div className="relative w-full max-w-xs mx-auto aspect-square">
-                        <Image src={URL.createObjectURL(file)} alt="Original image preview" layout="fill" className="rounded-md object-contain" />
+                        <Image src={URL.createObjectURL(file)} alt="Original image preview" fill className="rounded-md object-contain" />
                     </div>
                    <h3 className="font-medium">Resize Options</h3>
                    <div className="space-y-2">
@@ -234,15 +234,15 @@ export function ImageResize({ onBack, title }: ToolProps) {
           )}
         </CardContent>
         <CardFooter className="flex-col gap-2">
-          {file && !resizedImage && (
+          {file && !isProcessing && !resizedImage && (
             <Button className="w-full" size="lg" onClick={handleResize} disabled={isProcessing}>
               {isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Resizing...</> : 'Resize Image'}
             </Button>
           )}
-           {resizedImage && !isProcessing && (
+           {file && resizedImage && !isProcessing && (
              <Button variant="outline" className="w-full" size="lg" onClick={handleClear} disabled={isProcessing}>Start Over</Button>
            )}
-           {!resizedImage && file && !isProcessing && (
+           {file && !resizedImage && !isProcessing && (
               <Button variant="outline" className="w-full" size="lg" onClick={handleClear} disabled={isProcessing}>Clear</Button>
            )}
         </CardFooter>
