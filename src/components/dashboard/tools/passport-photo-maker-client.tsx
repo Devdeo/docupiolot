@@ -76,6 +76,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
   const [imageCount, setImageCount] = useState(8);
   const [addBorder, setAddBorder] = useState(false);
   const [borderColor, setBorderColor] = useState('#000000');
+  const [imageSpacing, setImageSpacing] = useState([4]);
   
   const { toast } = useToast();
 
@@ -374,20 +375,24 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
         photoHeightPt *= 72;
     }
     
-    const cols = Math.floor(A4_WIDTH_PT / photoWidthPt);
-    const rows = Math.floor(A4_HEIGHT_PT / photoHeightPt);
+    const spacing = imageSpacing[0];
+    const photoAndSpaceWidth = photoWidthPt + spacing;
+    const photoAndSpaceHeight = photoHeightPt + spacing;
+
+    const cols = Math.floor((A4_WIDTH_PT + spacing) / photoAndSpaceWidth);
+    const rows = Math.floor((A4_HEIGHT_PT + spacing) / photoAndSpaceHeight);
+    
     let imagesDrawn = 0;
-    let imageIndex = 0;
 
     for (let row = 0; row < rows && imagesDrawn < imageCount; row++) {
         for (let col = 0; col < cols && imagesDrawn < imageCount; col++) {
-            const currentImage = editedImages[imageIndex % editedImages.length];
+            const currentImage = editedImages[imagesDrawn % editedImages.length];
             const img = new window.Image();
             
             const promise = new Promise<void>(resolve => {
                 img.onload = () => {
-                    const x = col * photoWidthPt;
-                    const y = row * photoHeightPt;
+                    const x = col * photoAndSpaceWidth;
+                    const y = row * photoAndSpaceHeight;
                     if (x + photoWidthPt <= A4_WIDTH_PT && y + photoHeightPt <= A4_HEIGHT_PT) {
                         if (addBorder) {
                             layoutCtx.fillStyle = borderColor;
@@ -404,17 +409,16 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
             await promise;
 
             imagesDrawn++;
-            imageIndex++;
         }
     }
     setFinalLayout(layoutCanvas.toDataURL());
-  }, [editedImages, country, imageCount, addBorder, borderColor]);
+  }, [editedImages, country, imageCount, addBorder, borderColor, imageSpacing]);
 
   useEffect(() => {
     if (currentStep === 2 && editedImages.length > 0) {
       generateFinalLayout();
     }
-  }, [currentStep, editedImages, generateFinalLayout, imageCount, addBorder, borderColor]);
+  }, [currentStep, editedImages, generateFinalLayout, imageCount, addBorder, borderColor, imageSpacing]);
 
 
   const downloadPdf = async () => {
@@ -437,19 +441,22 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
             photoHeightPt *= 72;
         }
         
-        const cols = Math.floor(page.getWidth() / photoWidthPt);
-        const rows = Math.floor(page.getHeight() / photoHeightPt);
+        const spacing = imageSpacing[0];
+        const photoAndSpaceWidth = photoWidthPt + spacing;
+        const photoAndSpaceHeight = photoHeightPt + spacing;
+
+        const cols = Math.floor((page.getWidth() + spacing) / photoAndSpaceWidth);
+        const rows = Math.floor((page.getHeight() + spacing) / photoAndSpaceHeight);
         let imagesDrawn = 0;
-        let imageIndex = 0;
 
         for (let row = 0; row < rows && imagesDrawn < imageCount; row++) {
             for (let col = 0; col < cols && imagesDrawn < imageCount; col++) {
-                const currentImage = editedImages[imageIndex % editedImages.length];
+                const currentImage = editedImages[imagesDrawn % editedImages.length];
                 const jpgImageBytes = await fetch(currentImage.finalUrl).then(res => res.arrayBuffer());
                 const jpgImage = await pdfDoc.embedJpg(jpgImageBytes);
 
-                const x = col * photoWidthPt;
-                const y = page.getHeight() - (row + 1) * photoHeightPt;
+                const x = col * photoAndSpaceWidth;
+                const y = page.getHeight() - (row * photoAndSpaceHeight) - photoHeightPt;
                 if (x + photoWidthPt <= page.getWidth() && y >= 0) {
                      if (addBorder) {
                         page.drawRectangle({
@@ -464,7 +471,6 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
                      }
                 }
                 imagesDrawn++;
-                imageIndex++;
             }
         }
         
@@ -571,7 +577,11 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
                         <h4 className='font-medium text-center'>Layout Options</h4>
                         <div className="space-y-2">
                             <Label>Number of Photos ({imageCount})</Label>
-                            <Slider value={[imageCount]} onValueChange={(v) => setImageCount(v[0])} min={1} max={30} step={1} />
+                            <Slider value={[imageCount]} onValueChange={(v) => setImageCount(v[0])} min={1} max={36} step={1} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Space Between Photos ({imageSpacing[0]}pt)</Label>
+                            <Slider value={imageSpacing} onValueChange={setImageSpacing} min={0} max={20} step={1} />
                         </div>
                          <div className="flex items-center space-x-2">
                             <Checkbox id="add-border" checked={addBorder} onCheckedChange={(checked) => setAddBorder(checked as boolean)} />
