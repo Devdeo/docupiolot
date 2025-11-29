@@ -12,6 +12,7 @@ import {
   User,
   Shrink,
   FileMinus,
+  LayoutGrid,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -72,10 +73,10 @@ export const tools: Tool[] = [
     icon: FileImage,
   },
   {
-    id: 'pdf-page-remover',
-    title: 'PDF Page Remover',
-    description: 'Delete specific pages from a PDF file.',
-    icon: FileMinus,
+    id: 'organize-pdf-pages',
+    title: 'Organize PDF Pages',
+    description: 'Reorder, rotate, and delete pages from a PDF.',
+    icon: LayoutGrid,
   },
   {
     id: 'convert-from-pdf',

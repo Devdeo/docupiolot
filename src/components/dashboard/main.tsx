@@ -43,7 +43,7 @@ const toolComponents: Record<
   'excel-to-pdf': ExcelToPdf,
   'ppt-to-pdf': PptToPdf,
   'psd-to-pdf': PsdToPdf,
-  'pdf-page-remover': PdfPageRemover,
+  'organize-pdf-pages': PdfPageRemover,
 };
 
 const tools: ToolWithComponent[] = toolDefinitions.map((tool) => ({
