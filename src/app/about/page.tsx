@@ -1,3 +1,5 @@
+import { GoogleAdsense } from '@/components/analytics/google-adsense';
+
 export default function AboutPage() {
   return (
     <div className="container mx-auto px-4 py-12">
@@ -6,6 +8,10 @@ export default function AboutPage() {
         <p className="text-lg text-muted-foreground mb-8">
           Your all-in-one document processing assistant.
         </p>
+
+        <div className="mb-8">
+          <GoogleAdsense />
+        </div>
 
         <div className="space-y-6 text-foreground">
           <p>

@@ -1,3 +1,5 @@
+import { GoogleAdsense } from '@/components/analytics/google-adsense';
+
 export default function PrivacyPolicyPage() {
   return (
     <div className="container mx-auto px-4 py-12">
@@ -6,6 +8,10 @@ export default function PrivacyPolicyPage() {
         <p className="text-lg text-muted-foreground mb-8">
           Last Updated: {new Date().toLocaleDateString()}
         </p>
+
+        <div className="mb-8">
+          <GoogleAdsense />
+        </div>
 
         <div className="space-y-6 text-foreground prose lg:prose-xl">
           <h2 className="text-2xl font-semibold">1. The Most Important Thing: We Don't Store Your Files</h2>

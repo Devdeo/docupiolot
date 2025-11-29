@@ -2,6 +2,7 @@
 
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { GoogleAdsense } from '@/components/analytics/google-adsense';
 
 interface ToolContainerProps {
   title: string;
@@ -26,7 +27,12 @@ export function ToolContainer({ title, onBack, children }: ToolContainerProps) {
           {title}
         </h2>
       </div>
-      <div className="mx-auto max-w-2xl">{children}</div>
+      <div className="mx-auto max-w-2xl">
+        {children}
+        <div className="mt-8">
+            <GoogleAdsense />
+        </div>
+      </div>
     </div>
   );
 }
