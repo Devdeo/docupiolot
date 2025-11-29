@@ -256,6 +256,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
     if (e.touches.length === 1) {
+      setDragging(null); // Reset dragging state for single touch
       const { x, y } = getCoords(e.touches[0]);
       handleDragStart(x, y);
     } else if (e.touches.length === 2) {
