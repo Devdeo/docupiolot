@@ -36,6 +36,7 @@ const A4_HEIGHT_PT = 841.89;
 export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
+  const [country, setCountry] = useState<CountryKey>('uk');
   
   // Cropping & image state
   const cropCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -54,14 +55,14 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
   
   // Final layout state
   const [finalLayout, setFinalLayout] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isProcessing, setIsProcessing] useState(false);
   
   const { toast } = useToast();
 
   const getAspectRatio = useCallback(() => {
     const { width, height } = countries[country];
     return width / height;
-  }, []);
+  }, [country]);
 
   // Load original image
   useEffect(() => {
@@ -220,8 +221,6 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
     setScale(s => Math.max(0.1, s + delta));
   };
 
-
-  const [country, setCountry] = useState<CountryKey>('uk');
 
   const handleFileSelect = (files: File[]) => {
     setFile(files[0] || null);
@@ -481,3 +480,5 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
     </ToolContainer>
   );
 }
+
+    
