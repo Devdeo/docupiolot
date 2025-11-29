@@ -13,6 +13,7 @@ import { MergeOrganizePdf } from './tools/merge-organize-pdf';
 import { EditPdf } from './tools/edit-pdf';
 import { PassportPhotoMaker } from './tools/passport-photo-maker';
 import { ImageConverter } from './tools/image-converter';
+import { PdfToImage } from './tools/pdf-to-image';
 
 type ToolWithComponent = Tool & {
   component: React.ComponentType<{ onBack: () => void; title: string }>;
@@ -30,6 +31,7 @@ const toolComponents: Record<
   'edit-pdf': EditPdf,
   'passport-photo': PassportPhotoMaker,
   'image-converter': ImageConverter,
+  'pdf-to-image': PdfToImage,
 };
 
 const tools: ToolWithComponent[] = toolDefinitions.map((tool) => ({

@@ -4,6 +4,7 @@ import {
   FilePenLine,
   FileText,
   Image as ImageIcon,
+  Images,
   Scaling,
   User,
 } from 'lucide-react';
@@ -28,6 +29,12 @@ export const tools: Tool[] = [
     title: 'PDF Resizer',
     description: 'Change PDF dimensions and quality.',
     icon: FileText,
+  },
+  {
+    id: 'pdf-to-image',
+    title: 'PDF to Image',
+    description: 'Convert each page of a PDF into an image.',
+    icon: Images,
   },
   {
     id: 'convert-from-pdf',
