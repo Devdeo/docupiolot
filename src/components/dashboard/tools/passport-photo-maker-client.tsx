@@ -55,7 +55,7 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
   
   // Final layout state
   const [finalLayout, setFinalLayout] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   const { toast } = useToast();
 
@@ -480,5 +480,3 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
     </ToolContainer>
   );
 }
-
-    
