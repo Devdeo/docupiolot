@@ -9,6 +9,7 @@ import { ToolContainer } from './tool-container';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { PDFDocument } from 'pdf-lib';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface ToolProps {
   onBack: () => void;
@@ -19,6 +20,8 @@ export function PdfResize({ onBack, title }: ToolProps) {
   const [file, setFile] = useState<File | null>(null);
   const [resizedPdf, setResizedPdf] = useState<Uint8Array | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [targetSize, setTargetSize] = useState('2');
+  const [targetUnit, setTargetUnit] = useState('MB');
   const [dpi, setDpi] = useState('144');
   const [outputFilename, setOutputFilename] = useState('');
   const { toast } = useToast();
@@ -124,7 +127,22 @@ export function PdfResize({ onBack, title }: ToolProps) {
           <div className="space-y-4">
             <h3 className="font-medium">Compression Options</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2 md:col-span-2">
+              <div className="space-y-2">
+                <Label htmlFor="size">Target Size</Label>
+                <div className="flex gap-2">
+                    <Input id="size" value={targetSize} onChange={(e) => setTargetSize(e.target.value)} placeholder="e.g., 2" type="number" className="w-full" disabled={!file || isProcessing}/>
+                    <Select value={targetUnit} onValueChange={setTargetUnit} disabled={!file || isProcessing}>
+                        <SelectTrigger className="w-[80px]">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="KB">KB</SelectItem>
+                            <SelectItem value="MB">MB</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="quality">Quality (DPI)</Label>
                 <Input id="quality" value={dpi} onChange={e => setDpi(e.target.value)} placeholder="e.g., 144" type="number" disabled={!file || isProcessing} />
                 <p className="text-xs text-muted-foreground">Lower DPI may reduce file size for PDFs with images. This is a best-effort compression.</p>
