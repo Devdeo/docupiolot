@@ -45,41 +45,52 @@ export function ImageResize({ onBack, title }: ToolProps) {
         const img = document.createElement('img');
         
         img.onload = async () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            if (!ctx) {
-                throw new Error('Could not get canvas context');
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                if (!ctx) {
+                    throw new Error('Could not get canvas context');
+                }
+
+                const currentDpi = parseInt(dpi, 10) || 150;
+                const scale = currentDpi / 72; // Assume original is 72 dpi screen default
+
+                canvas.width = img.width * scale;
+                canvas.height = img.height * scale;
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                let quality = 0.9;
+                let resizedDataUrl = canvas.toDataURL(file.type, quality);
+                let blob = await dataUrlToBlob(resizedDataUrl);
+
+                const targetBytes = (parseFloat(targetSize) || 2) * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
+                
+                // Iterative resizing to get closer to target size (simple version)
+                let iterations = 10;
+                while (blob.size > targetBytes && quality > 0.1 && iterations > 0) {
+                  quality -= 0.1;
+                  resizedDataUrl = canvas.toDataURL(file.type, quality);
+                  blob = await dataUrlToBlob(resizedDataUrl);
+                  iterations--;
+                }
+
+                setResizedImage(resizedDataUrl);
+                toast({
+                    title: 'Image Resized',
+                    description: `Your image has been resized to approximately ${(blob.size / 1024 / 1024).toFixed(2)} MB.`,
+                });
+            } catch (error) {
+                 console.error(error);
+                const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred during processing.';
+                toast({
+                    variant: 'destructive',
+                    title: 'Error processing image',
+                    description: errorMessage,
+                });
+            } finally {
+                setIsProcessing(false);
             }
-
-            const currentDpi = parseInt(dpi, 10) || 150;
-            const scale = currentDpi / 72; // Assume original is 72 dpi screen default
-
-            canvas.width = img.width * scale;
-            canvas.height = img.height * scale;
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-            let quality = 0.9;
-            let resizedDataUrl = canvas.toDataURL(file.type, quality);
-            let blob = await dataUrlToBlob(resizedDataUrl);
-
-            const targetBytes = (parseFloat(targetSize) || 2) * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
-            
-            // Iterative resizing to get closer to target size (simple version)
-            let iterations = 10;
-            while (blob.size > targetBytes && quality > 0.1 && iterations > 0) {
-              quality -= 0.1;
-              resizedDataUrl = canvas.toDataURL(file.type, quality);
-              blob = await dataUrlToBlob(resizedDataUrl);
-              iterations--;
-            }
-
-            setResizedImage(resizedDataUrl);
-            toast({
-                title: 'Image Resized',
-                description: `Your image has been resized to approximately ${(blob.size / 1024 / 1024).toFixed(2)} MB.`,
-            });
-            setIsProcessing(false);
         };
         
         img.onerror = () => {
