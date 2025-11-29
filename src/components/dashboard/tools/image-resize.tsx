@@ -164,8 +164,8 @@ export function ImageResize({ onBack, title }: ToolProps) {
     setIsProcessing(false);
   }
 
-  const handleFileSelect = (f: File | null) => {
-    setFile(f);
+  const handleFileSelect = (files: File[]) => {
+    setFile(files[0] || null);
     setResizedImage(null);
     setIsProcessing(false);
   }

@@ -39,8 +39,8 @@ export default function PdfResizeClient({ onBack, title }: ToolProps) {
     }
   }, [file]);
   
-  const handleFileSelect = (f: File | null) => {
-    setFile(f);
+  const handleFileSelect = (files: File[]) => {
+    setFile(files[0] || null);
     setResizedPdf(null);
     setResizedSize(null);
     setIsProcessing(false);
@@ -69,9 +69,7 @@ export default function PdfResizeClient({ onBack, title }: ToolProps) {
     setTimeout(async () => {
       try {
         const pdfjs = await import('pdfjs-dist/build/pdf');
-        const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.mjs');
-        
-        pdfjs.GlobalWorkerOptions.workerSrc = new URL((pdfjsWorker as any).default, import.meta.url).toString();
+        pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.mjs`;
         
         const existingPdfBytes = await file.arrayBuffer();
         
@@ -200,7 +198,7 @@ export default function PdfResizeClient({ onBack, title }: ToolProps) {
   };
 
   const handleClear = () => {
-    handleFileSelect(null);
+    handleFileSelect([]);
   };
 
   const formatBytes = (bytes: number | null) => {

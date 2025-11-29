@@ -28,27 +28,34 @@ export default function AddImagesToPdfClient({ onBack, title }: ToolProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
-  const handleFileSelect = useCallback((newFile: File | null) => {
-    if (newFile) {
-      if (!newFile.type.startsWith('image/')) {
-        toast({
-          variant: 'destructive',
-          title: 'Invalid File Type',
-          description: 'Please upload only image files.',
-        });
-        return;
-      }
-      const newImageFile: ImageFile = {
-        file: newFile,
-        preview: URL.createObjectURL(newFile),
-        id: `${newFile.name}-${Date.now()}`,
-      };
-      setFiles((prevFiles) => [...prevFiles, newImageFile]);
+  const handleFileSelect = useCallback((newFiles: File[]) => {
+    const imageFiles = newFiles.filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length !== newFiles.length) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid File Type',
+        description: 'Please upload only image files.',
+      });
     }
+
+    const newImageFiles: ImageFile[] = imageFiles.map(file => ({
+      file,
+      preview: URL.createObjectURL(file),
+      id: `${file.name}-${Date.now()}-${Math.random()}`,
+    }));
+
+    setFiles((prevFiles) => [...prevFiles, ...newImageFiles]);
   }, [toast]);
   
   const handleRemoveFile = (id: string) => {
-    setFiles((prevFiles) => prevFiles.filter((f) => f.id !== id));
+    setFiles((prevFiles) => {
+      const fileToRemove = prevFiles.find(f => f.id === id);
+      if (fileToRemove) {
+        URL.revokeObjectURL(fileToRemove.preview);
+      }
+      return prevFiles.filter((f) => f.id !== id);
+    });
   };
 
   const handleClearAll = () => {
@@ -145,7 +152,11 @@ export default function AddImagesToPdfClient({ onBack, title }: ToolProps) {
           <CardTitle>Add Images to Create a PDF</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <FileUpload onFileSelect={handleFileSelect} acceptedFileTypes={['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/bmp']} />
+          <FileUpload 
+            onFileSelect={handleFileSelect} 
+            acceptedFileTypes={['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/bmp']}
+            multiple={true}
+          />
           
           {files.length > 0 && (
             <div className='space-y-2'>

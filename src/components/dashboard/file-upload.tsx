@@ -6,53 +6,77 @@ import { cn } from '@/lib/utils';
 import { Button } from '../ui/button';
 
 interface FileUploadProps {
-  onFileSelect: (file: File | null) => void;
+  onFileSelect: (files: File[]) => void;
   acceptedFileTypes?: string[];
   maxSize?: number; // in bytes
+  multiple?: boolean;
 }
 
 export function FileUpload({
   onFileSelect,
   acceptedFileTypes = [],
-  maxSize, // Removed default
+  maxSize,
+  multiple = false,
 }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [file, setFile] = useState<File | null>(null);
+  const [fileNames, setFileNames] = useState<string[]>([]);
 
   const acceptedTypesString = useMemo(() => {
-    if(acceptedFileTypes.length === 0) return "any file";
+    if (acceptedFileTypes.length === 0) return 'any file';
     return acceptedFileTypes.join(', ');
   }, [acceptedFileTypes]);
 
   const handleFileChange = useCallback(
-    (selectedFile: File | null) => {
+    (selectedFiles: FileList | null) => {
       setError(null);
-      if (selectedFile) {
-        if (maxSize && selectedFile.size > maxSize) {
-          setError(`File is too large. Max size is ${maxSize / 1024 / 1024}MB.`);
-          setFile(null);
-          onFileSelect(null);
-          return;
+      if (selectedFiles && selectedFiles.length > 0) {
+        const filesArray = Array.from(selectedFiles);
+        const validFiles: File[] = [];
+        const newFileNames: string[] = [];
+
+        for (const file of filesArray) {
+          if (maxSize && file.size > maxSize) {
+            setError(`File ${file.name} is too large. Max size is ${maxSize / 1024 / 1024}MB.`);
+            // Don't process any files if one is invalid for simplicity
+            onFileSelect([]);
+            setFileNames([]);
+            return;
+          }
+          if (
+            acceptedFileTypes.length > 0 &&
+            !acceptedFileTypes.includes(file.type) &&
+            !acceptedFileTypes.some((type) => file.name.endsWith(type))
+          ) {
+            setError(
+              `File type for ${file.name} is invalid. Accepted types: ${acceptedTypesString}.`
+            );
+            onFileSelect([]);
+            setFileNames([]);
+            return;
+          }
+          validFiles.push(file);
+          newFileNames.push(file.name);
         }
-        if (
-          acceptedFileTypes.length > 0 &&
-          !acceptedFileTypes.includes(selectedFile.type) && !acceptedFileTypes.some(type => selectedFile.name.endsWith(type))
-        ) {
-          setError(`Invalid file type. Accepted types: ${acceptedTypesString}.`);
-          setFile(null);
-          onFileSelect(null);
-          return;
+        
+        onFileSelect(validFiles);
+        if (multiple) {
+          setFileNames(prev => [...prev, ...newFileNames]);
+        } else {
+          setFileNames(newFileNames);
         }
-        setFile(selectedFile);
-        onFileSelect(selectedFile);
       } else {
-        setFile(null);
-        onFileSelect(null);
+        onFileSelect([]);
+        setFileNames([]);
       }
     },
-    [acceptedFileTypes, acceptedTypesString, maxSize, onFileSelect]
+    [acceptedFileTypes, acceptedTypesString, maxSize, onFileSelect, multiple]
   );
+  
+  const clearSelection = () => {
+    onFileSelect([]);
+    setFileNames([]);
+  }
 
   const onDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -69,16 +93,22 @@ export function FileUpload({
     setIsDragging(false);
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
-      handleFileChange(files[0]);
+      handleFileChange(files);
     }
   };
 
   const onFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      handleFileChange(files[0]);
+      handleFileChange(files);
     }
   };
+
+  const displayedFileName = useMemo(() => {
+    if (fileNames.length === 0) return 'Drag & drop your file(s) here';
+    if (fileNames.length === 1) return fileNames[0];
+    return `${fileNames.length} files selected`;
+  }, [fileNames]);
 
   return (
     <div className="w-full">
@@ -86,7 +116,9 @@ export function FileUpload({
         htmlFor="file-upload-input"
         className={cn(
           'relative block w-full rounded-lg border-2 border-dashed border-border p-8 text-center cursor-pointer transition-colors duration-200',
-          isDragging ? 'border-primary bg-primary/10' : 'hover:border-primary/50 hover:bg-primary/5'
+          isDragging
+            ? 'border-primary bg-primary/10'
+            : 'hover:border-primary/50 hover:bg-primary/5'
         )}
         onDragEnter={onDragEnter}
         onDragLeave={onDragLeave}
@@ -96,7 +128,7 @@ export function FileUpload({
         <div className="flex flex-col items-center justify-center space-y-4">
           <UploadCloud className="h-12 w-12 text-muted-foreground" />
           <p className="text-lg font-semibold text-foreground">
-            {file ? file.name : 'Drag & drop your file here'}
+            {displayedFileName}
           </p>
           <p className="text-sm text-muted-foreground">
             or click to browse
@@ -108,12 +140,14 @@ export function FileUpload({
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           onChange={onFileInputChange}
           accept={acceptedFileTypes.join(',')}
+          multiple={multiple}
         />
       </label>
-      {file && (
+      {fileNames.length > 0 && !multiple && (
         <div className="mt-4 text-center">
-            <p className="text-sm text-muted-foreground">Selected: {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)</p>
-            <Button variant="link" size="sm" onClick={() => handleFileChange(null)}>Clear</Button>
+          <Button variant="link" size="sm" onClick={clearSelection}>
+            Clear
+          </Button>
         </div>
       )}
       {error && (

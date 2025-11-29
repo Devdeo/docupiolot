@@ -19,6 +19,18 @@ export function MergeOrganizePdf({ onBack, title }: ToolProps) {
   const [deleteFile, setDeleteFile] = useState<File | null>(null);
   const [combineFiles, setCombineFiles] = useState<File[]>([]);
 
+  const handleMergeFiles = (files: File[]) => {
+    setMergeFiles(f => [...f, ...files]);
+  };
+  
+  const handleDeleteFile = (files: File[]) => {
+    setDeleteFile(files[0] || null);
+  }
+
+  const handleCombineFiles = (files: File[]) => {
+    setCombineFiles(f => [...f, ...files]);
+  }
+
   return (
     <ToolContainer title={title} onBack={onBack}>
       <Tabs defaultValue="merge" className="w-full">
@@ -34,7 +46,7 @@ export function MergeOrganizePdf({ onBack, title }: ToolProps) {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">Upload multiple PDFs to combine them into one file.</p>
-              <FileUpload onFileSelect={(file) => file && setMergeFiles(f => [...f, file])} acceptedFileTypes={['application/pdf']} />
+              <FileUpload onFileSelect={handleMergeFiles} acceptedFileTypes={['application/pdf']} multiple={true} />
               {mergeFiles.length > 0 && 
                 <div className="space-y-2">
                   <h4 className="font-medium">Files to merge:</h4>
@@ -64,7 +76,7 @@ export function MergeOrganizePdf({ onBack, title }: ToolProps) {
               <CardTitle>Delete Pages from PDF</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-                <FileUpload onFileSelect={setDeleteFile} acceptedFileTypes={['application/pdf']} />
+                <FileUpload onFileSelect={handleDeleteFile} acceptedFileTypes={['application/pdf']} />
                 <div className="space-y-2">
                     <Label htmlFor="pages">Pages to delete</Label>
                     <Input id="pages" placeholder="e.g., 2, 5-7, 10" disabled={!deleteFile} />
@@ -85,7 +97,7 @@ export function MergeOrganizePdf({ onBack, title }: ToolProps) {
             </CardHeader>
             <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">Upload images and PDFs to combine them into a single PDF.</p>
-              <FileUpload onFileSelect={(file) => file && setCombineFiles(f => [...f, file])} acceptedFileTypes={['application/pdf', 'image/jpeg', 'image/png']} />
+              <FileUpload onFileSelect={handleCombineFiles} acceptedFileTypes={['application/pdf', 'image/jpeg', 'image/png']} multiple={true} />
               {combineFiles.length > 0 && 
                 <div className="space-y-2">
                   <h4 className="font-medium">Files to combine:</h4>

@@ -25,6 +25,10 @@ const acceptedTypes = [
 
 export function ConvertToPdf({ onBack, title }: ToolProps) {
   const [file, setFile] =useState<File | null>(null);
+  
+  const handleFileSelect = (files: File[]) => {
+    setFile(files[0] || null);
+  }
 
   return (
     <ToolContainer title={title} onBack={onBack}>
@@ -33,7 +37,7 @@ export function ConvertToPdf({ onBack, title }: ToolProps) {
           <CardTitle>Upload Document to Convert to PDF</CardTitle>
         </CardHeader>
         <CardContent>
-          <FileUpload onFileSelect={setFile} acceptedFileTypes={acceptedTypes} />
+          <FileUpload onFileSelect={handleFileSelect} acceptedFileTypes={acceptedTypes} />
         </CardContent>
         <CardFooter>
           <Button className="w-full" size="lg" disabled={!file}>

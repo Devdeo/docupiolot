@@ -15,6 +15,10 @@ interface ToolProps {
 export function PassportPhotoMaker({ onBack, title }: ToolProps) {
   const [file, setFile] = useState<File | null>(null);
 
+  const handleFileSelect = (files: File[]) => {
+    setFile(files[0] || null);
+  }
+
   return (
     <ToolContainer title={title} onBack={onBack}>
       <Card className="w-full shadow-lg">
@@ -22,7 +26,7 @@ export function PassportPhotoMaker({ onBack, title }: ToolProps) {
           <CardTitle>Create Your Passport Photo</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <FileUpload onFileSelect={setFile} acceptedFileTypes={['image/jpeg', 'image/png']} />
+          <FileUpload onFileSelect={handleFileSelect} acceptedFileTypes={['image/jpeg', 'image/png']} />
           
           <div className="space-y-2">
             <Label htmlFor="country">Photo Standards by Country</Label>

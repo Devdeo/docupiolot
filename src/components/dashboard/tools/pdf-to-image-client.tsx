@@ -22,6 +22,12 @@ export default function PdfToImageClient({ onBack, title }: ToolProps) {
   const [convertedImages, setConvertedImages] = useState<string[] | null>(null);
   const { toast } = useToast();
 
+  const handleFileSelect = (files: File[]) => {
+    setFile(files[0] || null);
+    setConvertedImages(null);
+    setIsConverting(false);
+  }
+
   const handleClear = () => {
     setFile(null);
     setConvertedImages(null);
@@ -120,7 +126,7 @@ export default function PdfToImageClient({ onBack, title }: ToolProps) {
         </CardHeader>
         <CardContent className="space-y-6">
           {!file ? (
-            <FileUpload onFileSelect={setFile} acceptedFileTypes={['application/pdf']} />
+            <FileUpload onFileSelect={handleFileSelect} acceptedFileTypes={['application/pdf']} />
           ) : isConverting ? (
              <div className="flex flex-col items-center justify-center gap-4 p-8">
                 <Loader2 className="h-16 w-16 animate-spin text-primary" />

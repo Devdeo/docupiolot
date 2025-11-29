@@ -14,6 +14,10 @@ interface ToolProps {
 
 export function ImageConverter({ onBack, title }: ToolProps) {
   const [file, setFile] = useState<File | null>(null);
+  
+  const handleFileSelect = (files: File[]) => {
+    setFile(files[0] || null);
+  }
 
   return (
     <ToolContainer title={title} onBack={onBack}>
@@ -22,7 +26,7 @@ export function ImageConverter({ onBack, title }: ToolProps) {
           <CardTitle>Upload Image to Convert</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <FileUpload onFileSelect={setFile} acceptedFileTypes={['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp']} />
+          <FileUpload onFileSelect={handleFileSelect} acceptedFileTypes={['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp']} />
           
           <div className="space-y-2">
             <Label htmlFor="format">Convert to</Label>

@@ -13,6 +13,10 @@ interface ToolProps {
 export function EditPdf({ onBack, title }: ToolProps) {
   const [file, setFile] = useState<File | null>(null);
 
+  const handleFileSelect = (files: File[]) => {
+    setFile(files[0] || null);
+  }
+
   return (
     <ToolContainer title={title} onBack={onBack}>
       <Card className="w-full shadow-lg">
@@ -22,7 +26,7 @@ export function EditPdf({ onBack, title }: ToolProps) {
         </CardHeader>
         <CardContent>
           {!file ? (
-            <FileUpload onFileSelect={setFile} acceptedFileTypes={['application/pdf']} />
+            <FileUpload onFileSelect={handleFileSelect} acceptedFileTypes={['application/pdf']} />
           ) : (
             <div className="w-full aspect-[4/5] bg-muted rounded-lg flex items-center justify-center text-muted-foreground font-medium">
               <p>PDF Editor Interface Placeholder</p>

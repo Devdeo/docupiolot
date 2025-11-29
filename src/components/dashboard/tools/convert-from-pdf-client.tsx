@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -26,11 +26,20 @@ export default function ConvertFromPdfClient({ onBack, title }: ToolProps) {
   const [format, setFormat] = useState<string>('jpg');
   const [isConverting, setIsConverting] = useState(false);
   const [convertedImages, setConvertedImages] = useState<string[] | null>(null);
+  const [convertedFileData, setConvertedFileData] = useState<ConvertedFile | null>(null);
   const { toast } = useToast();
+
+  const handleFileSelect = (files: File[]) => {
+    setFile(files[0] || null);
+    setConvertedImages(null);
+    setConvertedFileData(null);
+    setIsConverting(false);
+  }
 
   const handleClear = () => {
     setFile(null);
     setConvertedImages(null);
+    setConvertedFileData(null);
     setIsConverting(false);
   }
 
@@ -51,26 +60,35 @@ export default function ConvertFromPdfClient({ onBack, title }: ToolProps) {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(link.href);
+    } else if (convertedFileData) {
+        // Handle single file download (docx, xlsx)
+        const link = document.createElement('a');
+        link.href = `data:${convertedFileData.mimeType};base64,${convertedFileData.data}`;
+        link.download = convertedFileData.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
   };
 
 
   const handleConvert = async () => {
-    if (!file || !format) {
-      toast({ variant: 'destructive', title: 'Please select a file and format.' });
+    if (!file) {
+      toast({ variant: 'destructive', title: 'Please select a file.' });
       return;
     }
     
-    if (format !== 'jpg') {
-        toast({ variant: 'destructive', title: 'Coming Soon!', description: `Conversion to ${format.toUpperCase()} is not yet supported.` });
-        return;
-    }
-
     setIsConverting(true);
     setConvertedImages(null);
+    setConvertedFileData(null);
     
     try {
-        await handleJpgConversion();
+        if (format === 'jpg') {
+            await handleJpgConversion();
+        } else {
+             toast({ variant: 'destructive', title: 'Coming Soon!', description: `Conversion to ${format.toUpperCase()} is not yet supported.` });
+             setIsConverting(false);
+        }
     } catch (error) {
         console.error(error);
         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
@@ -79,11 +97,10 @@ export default function ConvertFromPdfClient({ onBack, title }: ToolProps) {
             title: 'Conversion Failed',
             description: errorMessage,
         });
-    } finally {
         setIsConverting(false);
     }
   };
-
+  
   const handleJpgConversion = async () => {
     if (!file) return;
 
@@ -121,6 +138,7 @@ export default function ConvertFromPdfClient({ onBack, title }: ToolProps) {
     } else {
       throw new Error('Conversion resulted in no images.');
     }
+     setIsConverting(false);
   };
 
   return (
@@ -131,20 +149,22 @@ export default function ConvertFromPdfClient({ onBack, title }: ToolProps) {
         </CardHeader>
         <CardContent className="space-y-6">
           {!file ? (
-            <FileUpload onFileSelect={setFile} acceptedFileTypes={['application/pdf']} />
+            <FileUpload onFileSelect={handleFileSelect} acceptedFileTypes={['application/pdf']} />
           ) : isConverting ? (
              <div className="flex flex-col items-center justify-center gap-4 p-8">
                 <Loader2 className="h-16 w-16 animate-spin text-primary" />
                 <p className="text-muted-foreground">Converting to {format.toUpperCase()}, please wait...</p>
              </div>
-          ) : (convertedImages) ? (
+          ) : (convertedImages || convertedFileData) ? (
              <div className="w-full space-y-4 text-center">
                  <h3 className="text-lg font-medium">Conversion Complete!</h3>
                  <p className="text-muted-foreground">
-                    Your PDF was converted into ${convertedImages.length} JPG image(s).
+                    {convertedImages ? `Your PDF was converted into ${convertedImages.length} JPG image(s).`
+                     : `Your PDF was converted into a ${format.toUpperCase()} file.`
+                    }
                  </p>
                  <Button onClick={handleDownload} className="w-full">
-                    Download Images as .zip
+                    {convertedImages ? "Download Images as .zip" : `Download ${convertedFileData?.filename}`}
                  </Button>
              </div>
           ) : (
@@ -171,7 +191,7 @@ export default function ConvertFromPdfClient({ onBack, title }: ToolProps) {
           )}
         </CardContent>
         <CardFooter className="flex-col gap-2">
-            {!isConverting && !(convertedImages) && (
+            {!isConverting && !(convertedImages || convertedFileData) && (
                 <Button className="w-full" size="lg" disabled={!file || isConverting} onClick={handleConvert}>
                     Convert PDF
                 </Button>
