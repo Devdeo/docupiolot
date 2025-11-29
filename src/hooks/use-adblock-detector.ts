@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -31,8 +32,10 @@ export function useAdblockDetector() {
       try {
         await fetch(new Request(remoteBaitUrl, { mode: 'no-cors', cache: 'reload' }));
       } catch (error) {
-        if (!isCancelled) setAdblockDetected(true);
-        console.warn('Adblock detected via remote network request failure.');
+        if (!isCancelled && !adblockDetected) {
+            setAdblockDetected(true);
+            console.warn('Adblock detected via remote network request failure.');
+        }
         return;
       }
 
@@ -40,8 +43,10 @@ export function useAdblockDetector() {
       try {
         await fetch(new Request(localBaitUrl, { cache: 'reload' }));
       } catch (error) {
-        if (!isCancelled) setAdblockDetected(true);
-        console.warn('Adblock detected via local network request failure.');
+        if (!isCancelled && !adblockDetected) {
+            setAdblockDetected(true);
+            console.warn('Adblock detected via local network request failure.');
+        }
         return;
       }
 
@@ -52,13 +57,15 @@ export function useAdblockDetector() {
         const baitElement = document.getElementById(baitElementId);
         
         if (!baitElement || baitElement.offsetHeight === 0 || window.getComputedStyle(baitElement).display === 'none') {
-          if (!isCancelled) setAdblockDetected(true);
-          console.warn('Adblock detected via DOM element modification.');
+          if (!isCancelled && !adblockDetected) {
+            setAdblockDetected(true);
+            console.warn('Adblock detected via DOM element modification.');
+          }
           return;
         }
 
         // If all checks pass, we assume no ad blocker is active for this cycle.
-        if (!isCancelled) {
+        if (!isCancelled && adblockDetected) {
           setAdblockDetected(false);
         }
 
@@ -77,7 +84,7 @@ export function useAdblockDetector() {
       isCancelled = true;
       clearInterval(intervalId);
     };
-  }, []);
+  }, [adblockDetected]);
 
   return adblockDetected;
 }
