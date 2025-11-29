@@ -9,7 +9,7 @@ import { GoogleAdsense } from './google-adsense';
 const COUNTDOWN_SECONDS = 5;
 
 export function InterstitialAd() {
-  const { isAdVisible, adData, hideAd } = useInterstitialAd();
+  const { isAdVisible, hideAd } = useInterstitialAd();
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
 
   useEffect(() => {
@@ -17,18 +17,17 @@ export function InterstitialAd() {
     if (isAdVisible) {
       setCountdown(COUNTDOWN_SECONDS);
       timer = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            hideAd(true); // Resolve the promise
-            return 0;
-          }
-          return prev - 1;
-        });
+        setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [isAdVisible, hideAd]);
+  }, [isAdVisible]);
+  
+  useEffect(() => {
+    if (isAdVisible && countdown === 0) {
+      hideAd(true);
+    }
+  }, [isAdVisible, countdown, hideAd]);
 
   return (
     <AnimatePresence>
