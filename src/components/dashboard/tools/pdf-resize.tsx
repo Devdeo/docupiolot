@@ -72,10 +72,12 @@ export function PdfResize({ onBack, title }: ToolProps) {
         
         setProgressMessage(`Analyzing and converting pages...`);
         
-        const pdfjs = await import('pdfjs-dist');
-        pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+        const pdfjs = await import('pdfjs-dist/build/pdf');
+        // Import the worker entry point and create a worker instance.
+        const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.min.mjs');
+        const worker = new Worker(pdfjsWorker.default);
 
-        const pdf = await pdfjs.getDocument(existingPdfBytes).promise;
+        const pdf = await pdfjs.getDocument({ data: existingPdfBytes, worker }).promise;
         const pageCount = pdf.numPages;
         const pageImagesData: {dataUrl: string, width: number, height: number}[] = [];
 
@@ -100,6 +102,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
             });
         }
         await pdf.destroy();
+        worker.terminate();
 
         setProgressMessage('Compressing images...');
         let currentImages: {bytes: ArrayBuffer, width: number, height: number}[] = [];
@@ -286,3 +289,5 @@ export function PdfResize({ onBack, title }: ToolProps) {
     </ToolContainer>
   );
 }
+
+    
