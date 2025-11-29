@@ -44,15 +44,15 @@ export function PdfResize({ onBack, title }: ToolProps) {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="dpi">Compression Level</Label>
-                <Select defaultValue="medium" disabled={!file}>
-                    <SelectTrigger>
+                <Label htmlFor="quality">Quality (DPI)</Label>
+                <Select defaultValue="144" disabled={!file}>
+                    <SelectTrigger id="quality">
                         <SelectValue placeholder="Select quality" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="low">Low Compression (High Quality)</SelectItem>
-                        <SelectItem value="medium">Medium Compression (Good Quality)</SelectItem>
-                        <SelectItem value="high">High Compression (Lower Quality)</SelectItem>
+                        <SelectItem value="220">High Quality (220 DPI)</SelectItem>
+                        <SelectItem value="144">Good Quality (144 DPI)</SelectItem>
+                        <SelectItem value="72">Low Quality (72 DPI)</SelectItem>
                     </SelectContent>
                 </Select>
               </div>
