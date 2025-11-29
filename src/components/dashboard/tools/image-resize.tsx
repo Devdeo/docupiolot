@@ -28,8 +28,8 @@ export function ImageResize({ onBack, title }: ToolProps) {
   const { showAd } = useInterstitialAd();
   
   // Size-based state
-  const [targetSize, setTargetSize] = useState('2');
-  const [targetUnit, setTargetUnit] = useState('MB');
+  const [targetSize, setTargetSize] = useState('500');
+  const [targetUnit, setTargetUnit] = useState('KB');
   
   // Dimension-based state
   const [targetWidth, setTargetWidth] = useState('');
@@ -203,7 +203,7 @@ export function ImageResize({ onBack, title }: ToolProps) {
           setIsProcessing(false);
       }
     }, 10);
-  }, [file, targetSize, targetUnit, outputExtension, toast, targetWidth, targetHeight, maintainAspectRatio]);
+  }, [file, targetSize, targetUnit, outputExtension, toast, targetWidth, targetHeight]);
   
   const handleDownload = () => {
     if (!resizedImage || !file) return;
@@ -298,7 +298,7 @@ export function ImageResize({ onBack, title }: ToolProps) {
                         <div className="space-y-4">
                           <Label htmlFor="size">Target File Size</Label>
                            <div className="flex gap-2">
-                               <Input id="size" value={targetSize} onChange={(e) => setTargetSize(e.target.value)} placeholder="e.g., 2" type="number" className="w-full" disabled={isProcessing}/>
+                               <Input id="size" value={targetSize} onChange={(e) => setTargetSize(e.target.value)} placeholder="e.g., 500" type="number" className="w-full" disabled={isProcessing}/>
                                <Select value={targetUnit} onValueChange={setTargetUnit} disabled={isProcessing}>
                                    <SelectTrigger className="w-[80px]">
                                        <SelectValue />

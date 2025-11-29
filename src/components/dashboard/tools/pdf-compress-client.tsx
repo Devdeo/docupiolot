@@ -33,8 +33,8 @@ export default function PdfCompressClient({ onBack, title }: ToolProps) {
   const { showAd } = useInterstitialAd();
   
   // Size-based state
-  const [targetSize, setTargetSize] = useState('2');
-  const [targetUnit, setTargetUnit] = useState('MB');
+  const [targetSize, setTargetSize] = useState('500');
+  const [targetUnit, setTargetUnit] = useState('KB');
   
   // Quality-based state
   const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>('basic');
@@ -322,7 +322,7 @@ export default function PdfCompressClient({ onBack, title }: ToolProps) {
                                     <div className="space-y-2 text-left">
                                         <Label htmlFor="size">Target Size</Label>
                                         <div className="flex gap-2">
-                                            <Input id="size" value={targetSize} onChange={(e) => setTargetSize(e.target.value)} placeholder="e.g., 2" type="number" className="w-full" disabled={isProcessing}/>
+                                            <Input id="size" value={targetSize} onChange={(e) => setTargetSize(e.target.value)} placeholder="e.g., 500" type="number" className="w-full" disabled={isProcessing}/>
                                             <Select value={targetUnit} onValueChange={setTargetUnit} disabled={isProcessing}>
                                                 <SelectTrigger className="w-[80px]">
                                                     <SelectValue />
