@@ -51,73 +51,58 @@ export function ImageResize({ onBack, title }: ToolProps) {
     try {
         const photoDataUri = await fileToDataUrl(file);
         
-        const img = document.createElement('img');
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const image = document.createElement('img');
+            image.onload = () => resolve(image);
+            image.onerror = () => reject(new Error('Failed to load image.'));
+            image.src = photoDataUri;
+        });
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
         
-        img.onload = async () => {
-            try {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                
-                if (!ctx) {
-                    throw new Error('Could not get canvas context');
-                }
-
-                const currentDpi = parseInt(dpi, 10) || 150;
-                const scale = currentDpi / 72; // Assume original is 72 dpi screen default
-
-                canvas.width = img.width * scale;
-                canvas.height = img.height * scale;
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-                let quality = 0.9;
-                let resizedDataUrl;
-                let blob;
-                const outputMimeType = `image/${outputExtension === 'jpg' ? 'jpeg' : outputExtension}`;
-
-                const targetBytes = (parseFloat(targetSize) || 2) * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
-                
-                let iterations = 10;
-                while (iterations > 0) {
-                  resizedDataUrl = canvas.toDataURL(outputMimeType, quality);
-                  blob = await dataUrlToBlob(resizedDataUrl);
-                  if (blob.size <= targetBytes) break;
-                  quality -= 0.1;
-                  if (quality <= 0.1) break;
-                  iterations--;
-                }
-                
-                if (!resizedDataUrl || !blob) {
-                    throw new Error("Failed to resize image to target size.");
-                }
-
-                setResizedImage(resizedDataUrl);
-                toast({
-                    title: 'Image Resized',
-                    description: `Your image has been resized to approximately ${(blob.size / 1024 / 1024).toFixed(2)} MB.`,
-                });
-            } catch (error) {
-                 console.error(error);
-                const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred during processing.';
-                toast({
-                    variant: 'destructive',
-                    title: 'Error processing image',
-                    description: errorMessage,
-                });
-            } finally {
-                setIsProcessing(false);
-            }
-        };
-        
-        img.onerror = () => {
-            setIsProcessing(false);
-            toast({
-                variant: 'destructive',
-                title: 'Error loading image',
-                description: 'The selected file could not be loaded as an image.',
-            });
+        if (!ctx) {
+            throw new Error('Could not get canvas context');
         }
 
-        img.src = photoDataUri;
+        const currentDpi = parseInt(dpi, 10) || 150;
+        const scale = currentDpi / 72; // Assume original is 72 dpi screen default
+
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        let quality = 0.9;
+        let resizedDataUrl;
+        let blob;
+        const outputMimeType = `image/${outputExtension === 'jpg' ? 'jpeg' : outputExtension}`;
+
+        const targetBytes = (parseFloat(targetSize) || 2) * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
+        
+        let iterations = 10;
+        while (iterations > 0) {
+          resizedDataUrl = canvas.toDataURL(outputMimeType, quality);
+          blob = await dataUrlToBlob(resizedDataUrl);
+          if (blob.size <= targetBytes) break;
+          quality -= 0.1;
+          if (quality <= 0.1) {
+            quality = 0.1; // Ensure we don't go below 0.1
+            resizedDataUrl = canvas.toDataURL(outputMimeType, quality);
+            blob = await dataUrlToBlob(resizedDataUrl);
+            break;
+          };
+          iterations--;
+        }
+        
+        if (!resizedDataUrl || !blob) {
+            throw new Error("Failed to resize image to target size.");
+        }
+
+        setResizedImage(resizedDataUrl);
+        toast({
+            title: 'Image Resized',
+            description: `Your image has been resized to approximately ${(blob.size / 1024 / 1024).toFixed(2)} MB.`,
+        });
 
     } catch (error) {
       console.error(error);
@@ -127,7 +112,8 @@ export function ImageResize({ onBack, title }: ToolProps) {
         title: 'Error resizing image',
         description: errorMessage,
       });
-      setIsProcessing(false);
+    } finally {
+        setIsProcessing(false);
     }
   };
   
@@ -135,7 +121,11 @@ export function ImageResize({ onBack, title }: ToolProps) {
     if (!resizedImage || !file) return;
     const link = document.createElement('a');
     link.href = resizedImage;
-    link.download = `${outputFilename}.${outputExtension}`;
+    
+    const finalFilename = outputFilename || `desized-${file.name.substring(0, file.name.lastIndexOf('.'))}`
+    const finalExtension = outputExtension || 'jpg';
+    link.download = `${finalFilename}.${finalExtension}`;
+
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
