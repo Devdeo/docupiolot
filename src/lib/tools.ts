@@ -64,6 +64,12 @@ export const tools: Tool[] = [
     icon: Presentation,
   },
   {
+    id: 'psd-to-pdf',
+    title: 'PSD to PDF',
+    description: 'Convert Photoshop files to PDF.',
+    icon: FileImage,
+  },
+  {
     id: 'convert-from-pdf',
     title: 'Convert from PDF',
     description: 'Turn PDFs into JPG, DOCX, XLS, and more.',
