@@ -9,7 +9,6 @@ import { ToolContainer } from './tool-container';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import JSZip from 'jszip';
-import { convertPdf } from '@/ai/flows/pdf-convert-flow';
 
 interface ToolProps {
   onBack: () => void;
@@ -26,14 +25,12 @@ export default function ConvertFromPdfClient({ onBack, title }: ToolProps) {
   const [file, setFile] = useState<File | null>(null);
   const [format, setFormat] = useState<string>('jpg');
   const [isConverting, setIsConverting] = useState(false);
-  const [convertedFile, setConvertedFile] = useState<ConvertedFile | null>(null);
   const [convertedImages, setConvertedImages] = useState<string[] | null>(null);
   const { toast } = useToast();
 
   const handleClear = () => {
     setFile(null);
     setConvertedImages(null);
-    setConvertedFile(null);
     setIsConverting(false);
   }
 
@@ -54,14 +51,6 @@ export default function ConvertFromPdfClient({ onBack, title }: ToolProps) {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(link.href);
-    } else if (convertedFile) {
-        // Handle single file download (DOCX, XLSX, etc.)
-        const link = document.createElement('a');
-        link.href = `data:${convertedFile.mimeType};base64,${convertedFile.data}`;
-        link.download = convertedFile.filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
     }
   };
 
@@ -72,21 +61,16 @@ export default function ConvertFromPdfClient({ onBack, title }: ToolProps) {
       return;
     }
     
-    if (format === 'psd') {
-        toast({ variant: 'destructive', title: 'Coming Soon!', description: `Conversion to PSD is not yet supported.` });
+    if (format !== 'jpg') {
+        toast({ variant: 'destructive', title: 'Coming Soon!', description: `Conversion to ${format.toUpperCase()} is not yet supported.` });
         return;
     }
 
     setIsConverting(true);
     setConvertedImages(null);
-    setConvertedFile(null);
     
     try {
-        if (format === 'jpg') {
-            await handleJpgConversion();
-        } else {
-            await handleAiConversion();
-        }
+        await handleJpgConversion();
     } catch (error) {
         console.error(error);
         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
@@ -139,55 +123,6 @@ export default function ConvertFromPdfClient({ onBack, title }: ToolProps) {
     }
   };
 
-  const handleAiConversion = async () => {
-    if (!file) return;
-    
-    // 1. Extract text from PDF on the client
-    const pdfjs = await import('pdfjs-dist/build/pdf');
-    pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.mjs`;
-
-    const pdfData = await file.arrayBuffer();
-    const pdf = await pdfjs.getDocument({ data: pdfData }).promise;
-    const pageCount = pdf.numPages;
-    let fullText = '';
-
-    for (let i = 0; i < pageCount; i++) {
-        const page = await pdf.getPage(i + 1);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(item => ('str' in item ? item.str : '')).join(' ');
-        fullText += pageText + '\n\n';
-    }
-    await pdf.destroy();
-
-    if (!fullText.trim()) {
-        throw new Error("Could not extract any text from the PDF. The document might be image-based.");
-    }
-
-    // 2. Call the server-side AI flow
-    const result = await convertPdf({
-        pdfText: fullText,
-        targetFormat: format as 'docx' | 'xlsx' | 'pptx',
-    });
-
-    const originalName = file.name.replace(/\.pdf$/i, '') || 'converted';
-    const mimeTypes = {
-        docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    };
-
-    setConvertedFile({
-        filename: `${originalName}.${format}`,
-        data: result.base64Data,
-        mimeType: mimeTypes[format as keyof typeof mimeTypes],
-    });
-
-    toast({
-        title: 'Conversion Successful',
-        description: `Your PDF has been converted to ${format.toUpperCase()}.`,
-    });
-  };
-
   return (
     <ToolContainer title={title} onBack={onBack}>
       <Card className="w-full shadow-lg">
@@ -201,19 +136,15 @@ export default function ConvertFromPdfClient({ onBack, title }: ToolProps) {
              <div className="flex flex-col items-center justify-center gap-4 p-8">
                 <Loader2 className="h-16 w-16 animate-spin text-primary" />
                 <p className="text-muted-foreground">Converting to {format.toUpperCase()}, please wait...</p>
-                <p className="text-sm text-center text-muted-foreground">AI conversions can take up to a minute.</p>
              </div>
-          ) : (convertedImages || convertedFile) ? (
+          ) : (convertedImages) ? (
              <div className="w-full space-y-4 text-center">
                  <h3 className="text-lg font-medium">Conversion Complete!</h3>
                  <p className="text-muted-foreground">
-                    {convertedImages 
-                        ? `Your PDF was converted into ${convertedImages.length} JPG image(s).`
-                        : `Your PDF was converted to ${format.toUpperCase()}.`
-                    }
+                    Your PDF was converted into ${convertedImages.length} JPG image(s).
                  </p>
                  <Button onClick={handleDownload} className="w-full">
-                    {convertedImages ? 'Download Images as .zip' : `Download ${convertedFile?.filename}`}
+                    Download Images as .zip
                  </Button>
              </div>
           ) : (
@@ -240,7 +171,7 @@ export default function ConvertFromPdfClient({ onBack, title }: ToolProps) {
           )}
         </CardContent>
         <CardFooter className="flex-col gap-2">
-            {!isConverting && !(convertedImages || convertedFile) && (
+            {!isConverting && !(convertedImages) && (
                 <Button className="w-full" size="lg" disabled={!file || isConverting} onClick={handleConvert}>
                     Convert PDF
                 </Button>
