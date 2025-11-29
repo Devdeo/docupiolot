@@ -273,8 +273,8 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
       handleDragMove(x, y);
     } else if (e.touches.length === 2) {
       if (pinchDist.current === 0) return;
-      const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-      const zoomRatio = dist / pinchDist.current;
+      const newDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      const zoomRatio = newDist / pinchDist.current;
       setScale(Math.max(0.1, initialScale.current * zoomRatio));
     }
   };
@@ -576,12 +576,12 @@ export default function PassportPhotoMakerClient({ onBack, title }: ToolProps) {
                     <div className='space-y-4 text-left p-2 border rounded-md'>
                         <h4 className='font-medium text-center'>Layout Options</h4>
                         <div className="space-y-2">
-                            <Label>Number of Photos ({imageCount})</Label>
-                            <Slider value={[imageCount]} onValueChange={(v) => setImageCount(v[0])} min={1} max={36} step={1} />
+                            <Label htmlFor="image-count">Number of Photos ({imageCount})</Label>
+                            <Slider id="image-count" value={[imageCount]} onValueChange={(v) => setImageCount(v[0])} min={1} max={36} step={1} />
                         </div>
                         <div className="space-y-2">
-                            <Label>Space Between Photos ({imageSpacing[0]}pt)</Label>
-                            <Slider value={imageSpacing} onValueChange={setImageSpacing} min={0} max={20} step={1} />
+                            <Label htmlFor="image-spacing">Space Between Photos ({imageSpacing[0]}pt)</Label>
+                            <Slider id="image-spacing" value={imageSpacing} onValueChange={setImageSpacing} min={0} max={20} step={1} />
                         </div>
                          <div className="flex items-center space-x-2">
                             <Checkbox id="add-border" checked={addBorder} onCheckedChange={(checked) => setAddBorder(checked as boolean)} />
