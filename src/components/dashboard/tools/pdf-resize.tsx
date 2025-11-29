@@ -177,18 +177,27 @@ export function PdfResize({ onBack, title }: ToolProps) {
           }
         }
         
-        if (!finalPdfBytes || finalPdfBytes.length > targetBytes) {
+        if (!finalPdfBytes) {
+          throw new Error("Could not generate a compressed PDF.");
+        }
+        
+        if (finalPdfBytes.length > targetBytes) {
           // If after all that it is still too big, it means the smallest possible version is still over the target.
           // We return the smallest we could make.
-           if(!finalPdfBytes) throw new Error("Could not generate a compressed PDF.");
+          toast({
+            variant: 'destructive',
+            title: 'Target size too small',
+            description: `Could only compress to ${formatBytes(finalPdfBytes.length)}. Try a larger target size.`,
+          });
+        } else {
+            toast({
+              title: 'Compression Successful',
+              description: `PDF compressed to ${formatBytes(finalPdfBytes.length)}.`,
+            });
         }
 
         setResizedPdf(finalPdfBytes);
         setResizedSize(finalPdfBytes.length);
-        toast({
-          title: 'Compression Successful',
-          description: `PDF compressed to ${formatBytes(finalPdfBytes.length)}.`,
-        });
 
       } catch (error) {
         console.error('Error processing PDF:', error);
