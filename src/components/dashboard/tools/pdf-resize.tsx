@@ -60,12 +60,6 @@ export function PdfResize({ onBack, title }: ToolProps) {
     }
     
     const targetBytes = parsedTargetSize * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
-    
-    if (targetBytes < 1024 || targetBytes > 100 * 1024 * 1024) {
-      toast({ variant: 'destructive', title: 'Invalid target size', description: 'Target size must be between 1 KB and 100 MB.' });
-      return;
-    }
-
 
     setIsProcessing(true);
     setResizedPdf(null);
@@ -78,18 +72,17 @@ export function PdfResize({ onBack, title }: ToolProps) {
         
         setProgressMessage(`Analyzing and converting pages...`);
         
-        const pdfjs = await import('pdfjs-dist/build/pdf');
-        const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.min.mjs');
-        pdfjs.GlobalWorkerOptions.workerSrc = new URL(pdfjsWorker.default, import.meta.url).toString();
+        const pdfjs = await import('pdfjs-dist');
+        pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
         const pdf = await pdfjs.getDocument(existingPdfBytes).promise;
         const pageCount = pdf.numPages;
         const pageImagesData: {dataUrl: string, width: number, height: number}[] = [];
 
         for (let i = 0; i < pageCount; i++) {
-            setProgressMessage(`Converting page ${i + 1} of ${pageCount}`);
+            setProgressMessage(`Converting page ${i + 1} of ${pageCount} to image`);
             const page = await pdf.getPage(i + 1);
-            const viewport = page.getViewport({ scale: 2.0 }); 
+            const viewport = page.getViewport({ scale: 1.5 }); // Use a fixed scale for initial render
             
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
@@ -108,15 +101,19 @@ export function PdfResize({ onBack, title }: ToolProps) {
         }
         await pdf.destroy();
 
-        setProgressMessage('Compressing pages...');
-        let quality = 0.95;
+        setProgressMessage('Compressing images...');
+        let currentImages: {bytes: ArrayBuffer, width: number, height: number}[] = [];
+        let totalImageSize = Infinity;
+        let quality = 1.0;
         let scale = 1.0;
-        let finalPdfBytes: Uint8Array | null = null;
-        
-        const maxIterations = 50; // Increased iterations for more aggressive compression
-        for(let i = 0; i < maxIterations; i++) {
-          const newPdfDoc = await PDFDocument.create();
+        const MAX_ITERATIONS = 50;
+
+        for (let i = 0; i < MAX_ITERATIONS && totalImageSize > targetBytes; i++) {
+          totalImageSize = 0;
+          currentImages = [];
           
+          setProgressMessage(`Iteration ${i+1}: Compressing with scale ${scale.toFixed(2)} & quality ${quality.toFixed(2)}`);
+
           for (const pageData of pageImagesData) {
             const img = new Image();
             img.src = pageData.dataUrl;
@@ -134,44 +131,41 @@ export function PdfResize({ onBack, title }: ToolProps) {
             
             const resizedDataUrl = canvas.toDataURL('image/jpeg', quality);
             const imageBytes = await fetch(resizedDataUrl).then(res => res.arrayBuffer());
-            const image = await newPdfDoc.embedJpg(imageBytes);
-
-            const page = newPdfDoc.addPage([newWidth, newHeight]);
-            page.drawImage(image, { x: 0, y: 0, width: newWidth, height: newHeight });
+            
+            totalImageSize += imageBytes.byteLength;
+            currentImages.push({ bytes: imageBytes, width: newWidth, height: newHeight });
           }
 
-          finalPdfBytes = await newPdfDoc.save();
-
-          setProgressMessage(`Iteration ${i+1}: Current size ${formatBytes(finalPdfBytes.length)}`);
-
-          if (finalPdfBytes.length <= targetBytes) {
-            break;
-          }
-
-          if (quality > 0.05) {
-            quality -= 0.05; // Finer steps
-          } else if (scale > 0.1) {
-            scale -= 0.05; // Finer steps
-            quality = 0.9; 
-          } else {
-             break;
+          if (totalImageSize > targetBytes) {
+            if (quality > 0.1) {
+              quality -= 0.05;
+            } else if (scale > 0.1) {
+              scale -= 0.05;
+              quality = 0.9; // Reset quality when scaling down
+            }
           }
         }
         
-        if (!finalPdfBytes) {
-          throw new Error("Could not generate a compressed PDF.");
+        setProgressMessage('Re-assembling PDF...');
+        const newPdfDoc = await PDFDocument.create();
+        for (const imageData of currentImages) {
+          const image = await newPdfDoc.embedJpg(imageData.bytes);
+          const page = newPdfDoc.addPage([imageData.width, imageData.height]);
+          page.drawImage(image, { x: 0, y: 0, width: imageData.width, height: imageData.height });
         }
-        
-        if (finalPdfBytes.length > targetBytes) {
+
+        const finalPdfBytes = await newPdfDoc.save();
+
+        if (finalPdfBytes.length > targetBytes * 1.1) { // Allow 10% overhead
           toast({
             variant: 'destructive',
-            title: 'Target size too small',
-            description: `Could only compress to ${formatBytes(finalPdfBytes.length)}. Try a larger target size.`,
+            title: 'Target size not met',
+            description: `Could only compress to ${formatBytes(finalPdfBytes.length)}. Please try a larger target size.`,
           });
         } else {
             toast({
               title: 'Compression Successful',
-              description: `PDF compressed to ${formatBytes(finalPdfBytes.length)}.`,
+              description: `Final PDF size: ${formatBytes(finalPdfBytes.length)}.`,
             });
         }
 
@@ -223,7 +217,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
       <Card className="w-full shadow-lg">
         <CardHeader>
           <CardTitle>Compress PDF</CardTitle>
-          <CardDescription>Upload a PDF to reduce its file size. Pages are converted to compressed images to meet the target size.</CardDescription>
+          <CardDescription>Upload a PDF to reduce its file size. Quality doesn't matter, we will hit the target size.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {!file ? (
@@ -259,7 +253,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
                       </div>
                       <h3 className="font-medium">Compression Options</h3>
                       <div className="space-y-2">
-                        <Label htmlFor="size">Target Size (1 KB - 100 MB)</Label>
+                        <Label htmlFor="size">Target Size</Label>
                         <div className="flex gap-2">
                             <Input id="size" value={targetSize} onChange={(e) => setTargetSize(e.target.value)} placeholder="e.g., 2" type="number" className="w-full" disabled={isProcessing}/>
                             <Select value={targetUnit} onValueChange={setTargetUnit} disabled={isProcessing}>
@@ -292,5 +286,3 @@ export function PdfResize({ onBack, title }: ToolProps) {
     </ToolContainer>
   );
 }
-
-    
