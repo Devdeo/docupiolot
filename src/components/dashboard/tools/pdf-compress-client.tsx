@@ -36,6 +36,7 @@ export default function PdfCompressClient({ onBack, title }: ToolProps) {
   
   // Quality-based state
   const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>('basic');
+  const [targetDpi, setTargetDpi] = useState('150');
 
   const [progressMessage, setProgressMessage] = useState('');
 
@@ -58,7 +59,7 @@ export default function PdfCompressClient({ onBack, title }: ToolProps) {
     setProgressMessage('');
   }
 
-  const compressPdf = useCallback(async (mode: 'size' | 'quality', options: { targetBytes?: number, level?: CompressionLevel }) => {
+  const compressPdf = useCallback(async (mode: 'size' | 'quality', options: { targetBytes?: number, level?: CompressionLevel, dpi?: number }) => {
     if (!file) {
       toast({ variant: 'destructive', title: 'No file selected' });
       return;
@@ -82,7 +83,9 @@ export default function PdfCompressClient({ onBack, title }: ToolProps) {
         const pageCount = pdf.numPages;
         const pageImagesData: {dataUrl: string, width: number, height: number}[] = [];
         
-        const initialScale = mode === 'quality' && options.level === 'strong' ? 1.5 : 2.0;
+        // Calculate scale based on DPI for quality mode, or use a default for size mode
+        const dpi = options.dpi || 150;
+        const initialScale = mode === 'quality' ? dpi / 72 : 2.0;
 
         for (let i = 0; i < pageCount; i++) {
             setProgressMessage(`Converting page ${i + 1} of ${pageCount} to image`);
@@ -171,7 +174,6 @@ export default function PdfCompressClient({ onBack, title }: ToolProps) {
 
         } else { // mode === 'quality'
             const quality = options.level === 'strong' ? 0.5 : 0.75;
-            const scale = options.level === 'strong' ? 0.75 : 1.0;
             setProgressMessage(`Compressing with ${options.level} settings...`);
             
             const newPdfDoc = await PDFDocument.create();
@@ -184,18 +186,16 @@ export default function PdfCompressClient({ onBack, title }: ToolProps) {
                 const ctx = canvas.getContext('2d');
                 if (!ctx) throw new Error('Could not get canvas context');
 
-                const newWidth = Math.round(pageData.width * scale);
-                const newHeight = Math.round(pageData.height * scale);
-                canvas.width = newWidth;
-                canvas.height = newHeight;
-                ctx.drawImage(img, 0, 0, newWidth, newHeight);
+                canvas.width = pageData.width;
+                canvas.height = pageData.height;
+                ctx.drawImage(img, 0, 0, pageData.width, pageData.height);
 
                 const resizedDataUrl = canvas.toDataURL('image/jpeg', quality);
                 const imageBytes = await fetch(resizedDataUrl).then(res => res.arrayBuffer());
 
                 const image = await newPdfDoc.embedJpg(imageBytes);
-                const page = newPdfDoc.addPage([newWidth, newHeight]);
-                page.drawImage(image, { x: 0, y: 0, width: newWidth, height: newHeight });
+                const page = newPdfDoc.addPage([pageData.width, pageData.height]);
+                page.drawImage(image, { x: 0, y: 0, width: pageData.width, height: pageData.height });
             }
             finalPdfBytes = await newPdfDoc.save();
         }
@@ -234,7 +234,12 @@ export default function PdfCompressClient({ onBack, title }: ToolProps) {
   }
 
   const handleCompressByQuality = () => {
-    compressPdf('quality', { level: compressionLevel });
+    const dpi = parseInt(targetDpi, 10);
+     if (isNaN(dpi) || dpi <= 0) {
+      toast({ variant: 'destructive', title: 'Invalid DPI', description: 'Please enter a positive number for DPI.' });
+      return;
+    }
+    compressPdf('quality', { level: compressionLevel, dpi });
   }
 
   const handleDownload = () => {
@@ -330,7 +335,7 @@ export default function PdfCompressClient({ onBack, title }: ToolProps) {
                                 </div>
                             </TabsContent>
                              <TabsContent value="quality" className="pt-4">
-                                <div className="space-y-4">
+                                <div className="space-y-4 text-left">
                                      <p className='text-sm text-muted-foreground'>Choose a preset compression level for a balance of size and quality.</p>
                                     <RadioGroup defaultValue="basic" onValueChange={(value: CompressionLevel) => setCompressionLevel(value)} className="grid grid-cols-2 gap-4">
                                         <div>
@@ -348,6 +353,11 @@ export default function PdfCompressClient({ onBack, title }: ToolProps) {
                                             </Label>
                                         </div>
                                     </RadioGroup>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="dpi">DPI (Resolution)</Label>
+                                        <Input id="dpi" value={targetDpi} onChange={(e) => setTargetDpi(e.target.value)} type="number" placeholder='e.g. 150' />
+                                        <p className='text-xs text-muted-foreground'>Lower DPI reduces file size (e.g., 72 for screen, 150 for standard).</p>
+                                    </div>
                                     <Button className="w-full" onClick={handleCompressByQuality} disabled={isProcessing}>
                                         Compress by Quality
                                     </Button>
@@ -368,3 +378,5 @@ export default function PdfCompressClient({ onBack, title }: ToolProps) {
     </ToolContainer>
   );
 }
+
+    
