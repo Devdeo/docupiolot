@@ -101,11 +101,12 @@ export function ImageResize({ onBack, title }: ToolProps) {
   };
   
   const handleDownload = () => {
-    if (!resizedImage) return;
+    if (!resizedImage || !file) return;
     const link = document.createElement('a');
     link.href = resizedImage;
+    const originalName = file.name.substring(0, file.name.lastIndexOf('.'));
     const fileExtension = resizedImage.split(';')[0].split('/')[1] || 'png';
-    link.download = `resized-image.${fileExtension}`;
+    link.download = `desized-${originalName}.${fileExtension}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
