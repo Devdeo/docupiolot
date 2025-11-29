@@ -69,7 +69,6 @@ export function PdfResize({ onBack, title }: ToolProps) {
         // 1. Convert all pages to images
         for (let i = 0; i < pageCount; i++) {
             setProgressMessage(`Converting page ${i + 1} of ${pageCount}...`);
-            const page = pdfDoc.getPage(i);
             
             // Create a temporary PDF with just one page to render it
             const tempPdfDoc = await PDFDocument.create();
@@ -85,8 +84,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
             if(!context) throw new Error("Could not create canvas context");
 
             const pdfjs = await import('pdfjs-dist/build/pdf');
-            const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.min.mjs');
-            pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+            pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
 
             const pdf = await pdfjs.getDocument(dataUrl).promise;
             const pdfPage = await pdf.getPage(1);
@@ -97,6 +95,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
             await pdfPage.render({ canvasContext: context, viewport: viewport }).promise;
             pageImages.push(canvas.toDataURL('image/jpeg', 1.0));
             URL.revokeObjectURL(dataUrl);
+            pdf.destroy();
         }
 
         // 2. Resize images to fit target size
@@ -104,14 +103,16 @@ export function PdfResize({ onBack, title }: ToolProps) {
         let quality = 0.9;
         let scale = 1.0;
         let finalImageBlobs: Blob[] = [];
+        let totalSize = 0;
 
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         if (!ctx) throw new Error('Could not get canvas context');
 
-        while(true) {
+        // Main loop to reduce size
+        for(let i=0; i<30; i++) { // Limit iterations to prevent infinite loops
           finalImageBlobs = [];
-          let currentTotalSize = 0;
+          totalSize = 0;
 
           for (const dataUrl of pageImages) {
             const img = await new Promise<HTMLImageElement>(resolve => {
@@ -126,21 +127,22 @@ export function PdfResize({ onBack, title }: ToolProps) {
             const resizedDataUrl = canvas.toDataURL('image/jpeg', quality);
             const blob = await fetch(resizedDataUrl).then(res => res.blob());
             finalImageBlobs.push(blob);
-            currentTotalSize += blob.size;
+            totalSize += blob.size;
           }
 
-          if (currentTotalSize <= targetBytes) {
-            break;
+          if (totalSize <= targetBytes) {
+            break; // We are under the target size
           }
 
+          // If not, reduce quality first, then scale
           if (quality > 0.1) {
             quality -= 0.1;
           } else if (scale > 0.2) {
             scale -= 0.1;
             quality = 0.9; // Reset quality when scaling down
           } else {
-            // Cannot compress further
-            break;
+             // Cannot compress further
+             break;
           }
         }
         
