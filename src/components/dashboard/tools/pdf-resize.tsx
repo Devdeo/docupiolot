@@ -65,7 +65,6 @@ export function PdfResize({ onBack, title }: ToolProps) {
         
         setProgressMessage(`Analyzing and converting pages...`);
         const pdfjs = await import('pdfjs-dist');
-        // This is the critical fix: point to a reliable CDN for the worker script.
         pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
         const pdf = await pdfjs.getDocument(existingPdfBytes).promise;
@@ -75,7 +74,6 @@ export function PdfResize({ onBack, title }: ToolProps) {
         for (let i = 0; i < pageCount; i++) {
             setProgressMessage(`Converting page ${i + 1} of ${pageCount}`);
             const page = await pdf.getPage(i + 1);
-            // Use a higher scale for better quality before compression
             const viewport = page.getViewport({ scale: 2.0 }); 
             
             const canvas = document.createElement('canvas');
@@ -95,13 +93,12 @@ export function PdfResize({ onBack, title }: ToolProps) {
         }
         await pdf.destroy();
 
-        // Iteratively re-assemble to meet target size
         setProgressMessage('Compressing pages...');
         let quality = 0.95;
         let scale = 1.0;
         let finalPdfBytes: Uint8Array | null = null;
         
-        const maxIterations = 30; // Prevents infinite loops
+        const maxIterations = 30; 
         for(let i = 0; i < maxIterations; i++) {
           const newPdfDoc = await PDFDocument.create();
           
@@ -133,18 +130,15 @@ export function PdfResize({ onBack, title }: ToolProps) {
           setProgressMessage(`Iteration ${i+1}: Current size ${formatBytes(finalPdfBytes.length)}`);
 
           if (finalPdfBytes.length <= targetBytes) {
-            // We are under the target, this is our best attempt for this loop.
             break;
           }
 
-          // If not, reduce quality first, then scale
           if (quality > 0.1) {
             quality -= 0.1;
           } else if (scale > 0.2) {
             scale -= 0.1;
-            quality = 0.9; // Reset quality when scaling down
+            quality = 0.9; 
           } else {
-             // Cannot compress further, break with last result
              break;
           }
         }
