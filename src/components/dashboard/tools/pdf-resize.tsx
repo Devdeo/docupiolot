@@ -63,74 +63,72 @@ export function PdfResize({ onBack, title }: ToolProps) {
         const targetBytes = (parseFloat(targetSize) || 2) * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
         const existingPdfBytes = await file.arrayBuffer();
         const pdfDoc = await PDFDocument.load(existingPdfBytes, { ignoreEncryption: true });
+        
         const pageCount = pdfDoc.getPageCount();
-        const pageImages: string[] = [];
+        const pageImages: {img: HTMLImageElement, width: number, height: number}[] = [];
 
         // 1. Convert all pages to images
+        setProgressMessage(`Analyzing and converting ${pageCount} pages...`);
+        const pdfjs = await import('pdfjs-dist');
+        const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.min.mjs');
+        pdfjs.GlobalWorkerOptions.workerSrc = (pdfjsWorker as any).default;
+
+        const pdf = await pdfjs.getDocument(existingPdfBytes).promise;
+
         for (let i = 0; i < pageCount; i++) {
-            setProgressMessage(`Converting page ${i + 1} of ${pageCount}...`);
+            const page = await pdf.getPage(i + 1);
+            const viewport = page.getViewport({ scale: 2.0 }); // Render at high res for quality
             
-            // Create a temporary PDF with just one page to render it
-            const tempPdfDoc = await PDFDocument.create();
-            const [copiedPage] = await tempPdfDoc.copyPages(pdfDoc, [i]);
-            tempPdfDoc.addPage(copiedPage);
-            const tempPdfBytes = await tempPdfDoc.save();
-
-            const blob = new Blob([tempPdfBytes], { type: 'application/pdf' });
-            const dataUrl = URL.createObjectURL(blob);
-
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
             if(!context) throw new Error("Could not create canvas context");
 
-            const pdfjs = await import('pdfjs-dist/build/pdf');
-            pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
-
-            const pdf = await pdfjs.getDocument(dataUrl).promise;
-            const pdfPage = await pdf.getPage(1);
-            const viewport = pdfPage.getViewport({ scale: 2.0 }); // Render at higher res for quality
             canvas.height = viewport.height;
             canvas.width = viewport.width;
 
-            await pdfPage.render({ canvasContext: context, viewport: viewport }).promise;
-            pageImages.push(canvas.toDataURL('image/jpeg', 1.0));
-            URL.revokeObjectURL(dataUrl);
-            pdf.destroy();
+            await page.render({ canvasContext: context, viewport: viewport }).promise;
+            
+            const img = new Image();
+            img.src = canvas.toDataURL('image/jpeg', 1.0);
+            await new Promise(resolve => { img.onload = resolve; });
+            pageImages.push({img, width: viewport.width, height: viewport.height});
         }
+        pdf.destroy();
 
-        // 2. Resize images to fit target size
-        setProgressMessage('Compressing images...');
-        let quality = 0.9;
+        // 2. Iteratively resize and re-assemble to meet target size
+        setProgressMessage('Compressing pages...');
+        let quality = 0.95;
         let scale = 1.0;
-        let finalImageBlobs: Blob[] = [];
-        let totalSize = 0;
-
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) throw new Error('Could not get canvas context');
-
-        // Main loop to reduce size
-        for(let i=0; i<30; i++) { // Limit iterations to prevent infinite loops
-          finalImageBlobs = [];
-          totalSize = 0;
-
-          for (const dataUrl of pageImages) {
-            const img = await new Promise<HTMLImageElement>(resolve => {
-                const image = new Image();
-                image.onload = () => resolve(image);
-                image.src = dataUrl;
-            });
-            canvas.width = img.width * scale;
-            canvas.height = img.height * scale;
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        let finalPdfBytes: Uint8Array | null = null;
+        
+        const maxIterations = 30; // Prevents infinite loops
+        for(let i = 0; i < maxIterations; i++) {
+          const newPdfDoc = await PDFDocument.create();
+          
+          for (const pageImage of pageImages) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            if (!ctx) throw new Error('Could not get canvas context');
+            
+            const newWidth = Math.round(pageImage.width * scale);
+            const newHeight = Math.round(pageImage.height * scale);
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+            ctx.drawImage(pageImage.img, 0, 0, newWidth, newHeight);
             
             const resizedDataUrl = canvas.toDataURL('image/jpeg', quality);
-            const blob = await fetch(resizedDataUrl).then(res => res.blob());
-            finalImageBlobs.push(blob);
-            totalSize += blob.size;
+            const imageBytes = await fetch(resizedDataUrl).then(res => res.arrayBuffer());
+            const image = await newPdfDoc.embedJpg(imageBytes);
+
+            const page = newPdfDoc.addPage([newWidth, newHeight]);
+            page.drawImage(image, { x: 0, y: 0, width: newWidth, height: newHeight });
           }
 
-          if (totalSize <= targetBytes) {
+          finalPdfBytes = await newPdfDoc.save();
+
+          setProgressMessage(`Iteration ${i+1}: Current size ${formatBytes(finalPdfBytes.length)}`);
+
+          if (finalPdfBytes.length <= targetBytes) {
             break; // We are under the target size
           }
 
@@ -141,22 +139,15 @@ export function PdfResize({ onBack, title }: ToolProps) {
             scale -= 0.1;
             quality = 0.9; // Reset quality when scaling down
           } else {
-             // Cannot compress further
+             // Cannot compress further, break with last result
              break;
           }
         }
         
-        // 3. Re-assemble PDF from images
-        setProgressMessage('Re-assembling PDF...');
-        const newPdfDoc = await PDFDocument.create();
-        for (const blob of finalImageBlobs) {
-            const imageBytes = await blob.arrayBuffer();
-            const image = await newPdfDoc.embedJpg(imageBytes);
-            const page = newPdfDoc.addPage([image.width, image.height]);
-            page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+        if (!finalPdfBytes) {
+          throw new Error("Could not generate a compressed PDF.");
         }
 
-        const finalPdfBytes = await newPdfDoc.save();
         setResizedPdf(finalPdfBytes);
         setResizedSize(finalPdfBytes.length);
         toast({
@@ -209,7 +200,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
       <Card className="w-full shadow-lg">
         <CardHeader>
           <CardTitle>Compress PDF</CardTitle>
-          <CardDescription>Upload a PDF to reduce its file size. Pages will be converted to images to meet the target size.</CardDescription>
+          <CardDescription>Upload a PDF to reduce its file size. Pages are converted to compressed images to meet the target size.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {!file ? (
