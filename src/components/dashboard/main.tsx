@@ -14,6 +14,7 @@ import { EditPdf } from './tools/edit-pdf';
 import { PassportPhotoMaker } from './tools/passport-photo-maker';
 import { ImageConverter } from './tools/image-converter';
 import { PdfToImage } from './tools/pdf-to-image';
+import { AddImagesToPdf } from './tools/add-images-to-pdf';
 
 type ToolWithComponent = Tool & {
   component: React.ComponentType<{ onBack: () => void; title: string }>;
@@ -32,6 +33,7 @@ const toolComponents: Record<
   'passport-photo': PassportPhotoMaker,
   'image-converter': ImageConverter,
   'pdf-to-image': PdfToImage,
+  'add-images-to-pdf': AddImagesToPdf,
 };
 
 const tools: ToolWithComponent[] = toolDefinitions.map((tool) => ({

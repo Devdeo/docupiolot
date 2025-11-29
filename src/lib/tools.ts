@@ -1,6 +1,7 @@
 import {
   ArrowRightLeft,
   Combine,
+  FileImage,
   FilePenLine,
   FileText,
   Image as ImageIcon,
@@ -35,6 +36,12 @@ export const tools: Tool[] = [
     title: 'PDF to Image',
     description: 'Convert each page of a PDF into an image.',
     icon: Images,
+  },
+  {
+    id: 'add-images-to-pdf',
+    title: 'Add Images to PDF',
+    description: 'Combine multiple images into a single PDF.',
+    icon: FileImage,
   },
   {
     id: 'convert-from-pdf',
