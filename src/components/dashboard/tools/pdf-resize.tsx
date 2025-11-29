@@ -8,8 +8,10 @@ import { FileUpload } from '../file-upload';
 import { ToolContainer } from './tool-container';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, PDFImage } from 'pdf-lib';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { dataUrlToBlob } from '@/lib/image-utils';
+
 
 interface ToolProps {
   onBack: () => void;
@@ -49,15 +51,79 @@ export function PdfResize({ onBack, title }: ToolProps) {
     try {
       const existingPdfBytes = await file.arrayBuffer();
       const pdfDoc = await PDFDocument.load(existingPdfBytes);
+
+      const imageCount = pdfDoc.getPageCount(); // This is a proxy for complexity.
+      const targetBytes = (parseFloat(targetSize) || 2) * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
       
+      // Flatten forms to remove interactive elements that can add size
       const form = pdfDoc.getForm();
       try {
         form.flatten();
       } catch (error) {
         console.warn("Could not flatten form. It might not exist or have issues.", error);
       }
+      
+      const imageObjects = pdfDoc.context.indirectObjects.entries()
+        .filter(([, obj]) => obj.get('Subtype')?.toString() === '/Image');
+      
+      if (imageObjects.length > 0) {
+        // This is an estimation. We calculate the new image size relative to the target.
+        const perImageTargetBytes = (targetBytes * 0.9) / imageObjects.length;
 
-      const pdfBytes = await pdfDoc.save({ useObjectStreams: false });
+        for (const [ref, obj] of imageObjects) {
+          try {
+              const pdfImage = new PDFImage(obj, ref, pdfDoc);
+              
+              // Skip small images that don't need compression
+              if (pdfImage.width < 100 || pdfImage.height < 100) {
+                  continue;
+              }
+
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+              if (!ctx) continue;
+              
+              const imageBytes = await pdfImage.embed();
+              const imageBlob = new Blob([imageBytes], { type: 'image/jpeg' }); // Assume jpeg, can be improved
+              const imageUrl = URL.createObjectURL(imageBlob);
+
+              const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+                  const image = new Image();
+                  image.onload = () => resolve(image);
+                  image.onerror = reject;
+                  image.src = imageUrl;
+              });
+              URL.revokeObjectURL(imageUrl);
+
+              canvas.width = img.width;
+              canvas.height = img.height;
+              ctx.drawImage(img, 0, 0);
+
+              let quality = 0.9;
+              let resizedDataUrl;
+              let resizedBlob;
+
+              // Iteratively find the best quality
+              for (let i=0; i<8; i++) {
+                  resizedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                  resizedBlob = await dataUrlToBlob(resizedDataUrl);
+                  if (resizedBlob.size <= perImageTargetBytes) break;
+                  quality -= 0.1;
+              }
+              
+              if (resizedDataUrl) {
+                  const newImageBytes = await fetch(resizedDataUrl).then(res => res.arrayBuffer());
+                  const newPdfImage = await pdfDoc.embedJpg(newImageBytes);
+                  obj.set(pdfDoc.context.obj.get('XObject').get('Name'), newPdfImage.ref);
+              }
+          } catch(e) {
+              console.warn("Could not process an image in the PDF:", e);
+              continue;
+          }
+        }
+      }
+
+      const pdfBytes = await pdfDoc.save({ useObjectStreams: true });
 
       setResizedPdf(pdfBytes);
       toast({
