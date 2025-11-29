@@ -9,19 +9,62 @@ import { ToolContainer } from './tool-container';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import JSZip from 'jszip';
-import { type LucideIcon } from 'lucide-react';
+import { convertPdf } from '@/ai/flows/pdf-convert-flow';
 
 interface ToolProps {
   onBack: () => void;
   title: string;
 }
 
+type ConvertedFile = {
+    filename: string;
+    data: string; // base64
+    mimeType: string;
+};
+
 export function ConvertFromPdf({ onBack, title }: ToolProps) {
   const [file, setFile] = useState<File | null>(null);
   const [format, setFormat] = useState<string>('jpg');
   const [isConverting, setIsConverting] = useState(false);
+  const [convertedFile, setConvertedFile] = useState<ConvertedFile | null>(null);
   const [convertedImages, setConvertedImages] = useState<string[] | null>(null);
   const { toast } = useToast();
+
+  const handleClear = () => {
+    setFile(null);
+    setConvertedImages(null);
+    setConvertedFile(null);
+    setIsConverting(false);
+  }
+
+  const handleDownload = async () => {
+    if (convertedImages && convertedImages.length > 0) {
+      // Handle JPG zip download
+      const zip = new JSZip();
+      convertedImages.forEach((dataUrl, index) => {
+        const imageData = dataUrl.split(',')[1];
+        zip.file(`page-${index + 1}.jpg`, imageData, { base64: true });
+      });
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(zipBlob);
+      const originalName = file?.name.replace(/\.pdf$/i, '') || 'converted';
+      link.download = `${originalName}-jpgs.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    } else if (convertedFile) {
+        // Handle single file download (DOCX, XLSX, etc.)
+        const link = document.createElement('a');
+        link.href = `data:${convertedFile.mimeType};base64,${convertedFile.data}`;
+        link.download = convertedFile.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+  };
+
 
   const handleConvert = async () => {
     if (!file || !format) {
@@ -29,88 +72,123 @@ export function ConvertFromPdf({ onBack, title }: ToolProps) {
       return;
     }
     
-    if (format !== 'jpg') {
-        toast({ variant: 'destructive', title: 'Coming Soon!', description: `Conversion to ${format.toUpperCase()} is not yet supported.` });
+    if (format === 'psd') {
+        toast({ variant: 'destructive', title: 'Coming Soon!', description: `Conversion to PSD is not yet supported.` });
         return;
     }
 
     setIsConverting(true);
     setConvertedImages(null);
+    setConvertedFile(null);
+    
     try {
-      const pdfjs = await import('pdfjs-dist/build/pdf');
-      const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.mjs');
-      
-      pdfjs.GlobalWorkerOptions.workerSrc = new URL((pdfjsWorker as any), import.meta.url).toString();
-
-      const pdfData = await file.arrayBuffer();
-      const pdf = await pdfjs.getDocument({ data: pdfData }).promise;
-      const pageCount = pdf.numPages;
-      const images: string[] = [];
-
-      for (let i = 0; i < pageCount; i++) {
-          const page = await pdf.getPage(i + 1);
-          const viewport = page.getViewport({ scale: 2.0 }); // Use a high scale for better quality
-
-          const canvas = document.createElement('canvas');
-          const context = canvas.getContext('2d');
-          if (!context) throw new Error("Could not create canvas context");
-
-          canvas.height = viewport.height;
-          canvas.width = viewport.width;
-
-          await page.render({ canvasContext: context, viewport: viewport }).promise;
-
-          images.push(canvas.toDataURL('image/jpeg', 0.95)); // High quality JPEG
-      }
-      await pdf.destroy();
-
-
-      if (images && images.length > 0) {
-        setConvertedImages(images);
-        toast({
-          title: 'Conversion Successful',
-          description: `Your PDF has been converted into ${images.length} JPG image(s).`,
-        });
-      } else {
-        throw new Error('Conversion resulted in no images.');
-      }
+        if (format === 'jpg') {
+            await handleJpgConversion();
+        } else {
+            await handleAiConversion();
+        }
     } catch (error) {
-      console.error(error);
-      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
-      toast({
-        variant: 'destructive',
-        title: 'Conversion Failed',
-        description: errorMessage,
-      });
+        console.error(error);
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+        toast({
+            variant: 'destructive',
+            title: 'Conversion Failed',
+            description: errorMessage,
+        });
     } finally {
-      setIsConverting(false);
+        setIsConverting(false);
     }
   };
-  
-  const handleDownload = async () => {
-    if (!convertedImages || convertedImages.length === 0) return;
 
-    const zip = new JSZip();
-    convertedImages.forEach((dataUrl, index) => {
-      const imageData = dataUrl.split(',')[1];
-      zip.file(`page-${index + 1}.jpg`, imageData, { base64: true });
-    });
+  const handleJpgConversion = async () => {
+    if (!file) return;
 
-    const zipBlob = await zip.generateAsync({ type: 'blob' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(zipBlob);
-    const originalName = file?.name.replace(/\.pdf$/i, '') || 'converted';
-    link.download = `${originalName}-jpgs.zip`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(link.href);
+    const pdfjs = await import('pdfjs-dist/build/pdf');
+    const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.mjs');
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL((pdfjsWorker as any).default, import.meta.url).toString();
+
+    const pdfData = await file.arrayBuffer();
+    const pdf = await pdfjs.getDocument({ data: pdfData }).promise;
+    const pageCount = pdf.numPages;
+    const images: string[] = [];
+
+    for (let i = 0; i < pageCount; i++) {
+        const page = await pdf.getPage(i + 1);
+        const viewport = page.getViewport({ scale: 2.0 }); // High scale for better quality
+
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error("Could not create canvas context");
+
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+        images.push(canvas.toDataURL('image/jpeg', 0.95)); // High quality JPEG
+    }
+    await pdf.destroy();
+
+    if (images && images.length > 0) {
+      setConvertedImages(images);
+      toast({
+        title: 'Conversion Successful',
+        description: `Your PDF has been converted into ${images.length} JPG image(s).`,
+      });
+    } else {
+      throw new Error('Conversion resulted in no images.');
+    }
   };
 
-  const handleClear = () => {
-    setFile(null);
-    setConvertedImages(null);
-  }
+  const handleAiConversion = async () => {
+    if (!file) return;
+    
+    // 1. Extract text from PDF on the client
+    const pdfjs = await import('pdfjs-dist/build/pdf');
+    const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.mjs');
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL((pdfjsWorker as any).default, import.meta.url).toString();
+
+    const pdfData = await file.arrayBuffer();
+    const pdf = await pdfjs.getDocument({ data: pdfData }).promise;
+    const pageCount = pdf.numPages;
+    let fullText = '';
+
+    for (let i = 0; i < pageCount; i++) {
+        const page = await pdf.getPage(i + 1);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => ('str' in item ? item.str : '')).join(' ');
+        fullText += pageText + '\n\n';
+    }
+    await pdf.destroy();
+
+    if (!fullText.trim()) {
+        throw new Error("Could not extract any text from the PDF. The document might be image-based.");
+    }
+
+    // 2. Call the server-side AI flow
+    const result = await convertPdf({
+        pdfText: fullText,
+        targetFormat: format as 'docx' | 'xlsx' | 'pptx',
+    });
+
+    const originalName = file.name.replace(/\.pdf$/i, '') || 'converted';
+    const mimeTypes = {
+        docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    };
+
+    setConvertedFile({
+        filename: `${originalName}.${format}`,
+        data: result.base64Data,
+        mimeType: mimeTypes[format as keyof typeof mimeTypes],
+    });
+
+    toast({
+        title: 'Conversion Successful',
+        description: `Your PDF has been converted to ${format.toUpperCase()}.`,
+    });
+  };
 
   return (
     <ToolContainer title={title} onBack={onBack}>
@@ -125,14 +203,20 @@ export function ConvertFromPdf({ onBack, title }: ToolProps) {
              <div className="flex flex-col items-center justify-center gap-4 p-8">
                 <Loader2 className="h-16 w-16 animate-spin text-primary" />
                 <p className="text-muted-foreground">Converting to {format.toUpperCase()}, please wait...</p>
+                <p className="text-sm text-center text-muted-foreground">AI conversions can take up to a minute.</p>
              </div>
-          ) : convertedImages ? (
+          ) : (convertedImages || convertedFile) ? (
              <div className="w-full space-y-4 text-center">
                  <h3 className="text-lg font-medium">Conversion Complete!</h3>
                  <p className="text-muted-foreground">
-                    Your PDF was converted into {convertedImages.length} JPG image(s).
+                    {convertedImages 
+                        ? `Your PDF was converted into ${convertedImages.length} JPG image(s).`
+                        : `Your PDF was converted to ${format.toUpperCase()}.`
+                    }
                  </p>
-                 <Button onClick={handleDownload} className="w-full">Download Images as .zip</Button>
+                 <Button onClick={handleDownload} className="w-full">
+                    {convertedImages ? 'Download Images as .zip' : `Download ${convertedFile?.filename}`}
+                 </Button>
              </div>
           ) : (
             <div className="w-full space-y-4">
@@ -158,9 +242,9 @@ export function ConvertFromPdf({ onBack, title }: ToolProps) {
           )}
         </CardContent>
         <CardFooter className="flex-col gap-2">
-            {!isConverting && !convertedImages && (
+            {!isConverting && !(convertedImages || convertedFile) && (
                 <Button className="w-full" size="lg" disabled={!file || isConverting} onClick={handleConvert}>
-                    {isConverting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Converting...</> : 'Convert PDF'}
+                    Convert PDF
                 </Button>
             )}
             {file && !isConverting && (
