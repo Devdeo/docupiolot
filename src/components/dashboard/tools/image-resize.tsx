@@ -5,10 +5,8 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileUpload } from '../file-upload';
 import { ToolContainer } from './tool-container';
-import { resizeImage, type ResizeImageInput } from '@/ai/flows/image-resize-flow';
 import { fileToDataUrl } from '@/lib/image-utils';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -22,9 +20,6 @@ export function ImageResize({ onBack, title }: ToolProps) {
   const [file, setFile] = useState<File | null>(null);
   const [width, setWidth] = useState<string>('');
   const [height, setHeight] = useState<string>('');
-  const [dpi, setDpi] = useState<string>('');
-  const [size, setSize] = useState<string>('');
-  const [sizeUnit, setSizeUnit] = useState<'KB' | 'MB'>('MB');
   const [resizedImage, setResizedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
@@ -39,35 +34,68 @@ export function ImageResize({ onBack, title }: ToolProps) {
       return;
     }
 
+    if (!width && !height) {
+        toast({
+            variant: 'destructive',
+            title: 'No dimensions specified',
+            description: 'Please enter a width or height.',
+        });
+        return;
+    }
+
     setIsProcessing(true);
     setResizedImage(null);
 
     try {
-      const photoDataUri = await fileToDataUrl(file);
-      
-      const input: ResizeImageInput = { photoDataUri };
-      if (width) input.width = parseInt(width, 10);
-      if (height) input.height = parseInt(height, 10);
-      if (dpi) input.dpi = parseInt(dpi, 10);
-      if (size) {
-        const sizeInMb = sizeUnit === 'KB' ? parseFloat(size) / 1024 : parseFloat(size);
-        input.size = sizeInMb;
-      }
+        const photoDataUri = await fileToDataUrl(file);
+        const img = document.createElement('img');
+        
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            if (!ctx) {
+                throw new Error('Could not get canvas context');
+            }
 
-      const result = await resizeImage(input);
-      setResizedImage(result.photoDataUri);
-      toast({
-        title: 'Image Resized',
-        description: 'Your image has been successfully resized.',
-      });
+            let newWidth = parseInt(width, 10);
+            let newHeight = parseInt(height, 10);
+
+            if (width && !height) {
+                newHeight = img.height * (newWidth / img.width);
+            } else if (!width && height) {
+                newWidth = img.width * (newHeight / img.height);
+            }
+
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+
+            ctx.drawImage(img, 0, 0, newWidth, newHeight);
+
+            const resizedDataUrl = canvas.toDataURL(file.type);
+
+            setResizedImage(resizedDataUrl);
+            toast({
+                title: 'Image Resized',
+                description: 'Your image has been successfully resized.',
+            });
+            setIsProcessing(false);
+        };
+        
+        img.onerror = () => {
+            throw new Error('Failed to load image');
+        }
+
+        img.src = photoDataUri;
+
     } catch (error) {
       console.error(error);
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.';
       toast({
         variant: 'destructive',
         title: 'Error resizing image',
-        description: 'An unexpected error occurred. Please try again.',
+        description: errorMessage,
       });
-    } finally {
       setIsProcessing(false);
     }
   };
@@ -76,7 +104,7 @@ export function ImageResize({ onBack, title }: ToolProps) {
     if (!resizedImage) return;
     const link = document.createElement('a');
     link.href = resizedImage;
-    const fileExtension = resizedImage.split(';')[0].split('/')[1];
+    const fileExtension = resizedImage.split(';')[0].split('/')[1] || 'png';
     link.download = `resized-image.${fileExtension}`;
     document.body.appendChild(link);
     link.click();
@@ -88,8 +116,6 @@ export function ImageResize({ onBack, title }: ToolProps) {
     setResizedImage(null);
     setWidth('');
     setHeight('');
-    setDpi('');
-    setSize('');
   }
 
   return (
@@ -115,6 +141,9 @@ export function ImageResize({ onBack, title }: ToolProps) {
           
           <div className="space-y-4">
             <h3 className="font-medium">Resize Options</h3>
+            <p className="text-sm text-muted-foreground">
+                Enter either width or height to maintain aspect ratio, or enter both for specific dimensions.
+            </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="width">Width (px)</Label>
@@ -123,27 +152,6 @@ export function ImageResize({ onBack, title }: ToolProps) {
               <div className="space-y-2">
                 <Label htmlFor="height">Height (px)</Label>
                 <Input id="height" placeholder="e.g., 1080" type="number" value={height} onChange={e => setHeight(e.target.value)} disabled={!file || isProcessing} />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               <div className="space-y-2">
-                <Label htmlFor="size">Target Size</Label>
-                <div className="flex gap-2">
-                    <Input id="size" placeholder="e.g., 2" type="number" className="w-full" value={size} onChange={e => setSize(e.target.value)} disabled={!file || isProcessing}/>
-                    <Select defaultValue="MB" onValueChange={(v: 'KB' | 'MB') => setSizeUnit(v)} disabled={!file || isProcessing}>
-                        <SelectTrigger className="w-[80px]">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="KB">KB</SelectItem>
-                            <SelectItem value="MB">MB</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="dpi">DPI</Label>
-                <Input id="dpi" placeholder="e.g., 300" type="number" value={dpi} onChange={e => setDpi(e.target.value)} disabled={!file || isProcessing} />
               </div>
             </div>
           </div>
