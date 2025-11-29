@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,16 @@ export function ImageResize({ onBack, title }: ToolProps) {
   const [targetSize, setTargetSize] = useState('2');
   const [targetUnit, setTargetUnit] = useState('MB');
   const [dpi, setDpi] = useState('150');
+  const [outputFilename, setOutputFilename] = useState('');
+  const [outputExtension, setOutputExtension] = useState('jpg');
   const { toast } = useToast();
+  
+  useEffect(() => {
+    if (file) {
+      const originalName = file.name.substring(0, file.name.lastIndexOf('.'));
+      setOutputFilename(`desized-${originalName}`);
+    }
+  }, [file]);
 
   const handleResize = async () => {
     if (!file) {
@@ -61,18 +70,24 @@ export function ImageResize({ onBack, title }: ToolProps) {
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
                 let quality = 0.9;
-                let resizedDataUrl = canvas.toDataURL(file.type, quality);
-                let blob = await dataUrlToBlob(resizedDataUrl);
+                let resizedDataUrl;
+                let blob;
+                const outputMimeType = `image/${outputExtension === 'jpg' ? 'jpeg' : outputExtension}`;
 
                 const targetBytes = (parseFloat(targetSize) || 2) * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
                 
-                // Iterative resizing to get closer to target size (simple version)
                 let iterations = 10;
-                while (blob.size > targetBytes && quality > 0.1 && iterations > 0) {
-                  quality -= 0.1;
-                  resizedDataUrl = canvas.toDataURL(file.type, quality);
+                while (iterations > 0) {
+                  resizedDataUrl = canvas.toDataURL(outputMimeType, quality);
                   blob = await dataUrlToBlob(resizedDataUrl);
+                  if (blob.size <= targetBytes) break;
+                  quality -= 0.1;
+                  if (quality <= 0.1) break;
                   iterations--;
+                }
+                
+                if (!resizedDataUrl || !blob) {
+                    throw new Error("Failed to resize image to target size.");
                 }
 
                 setResizedImage(resizedDataUrl);
@@ -94,7 +109,12 @@ export function ImageResize({ onBack, title }: ToolProps) {
         };
         
         img.onerror = () => {
-            throw new Error('Failed to load image');
+            setIsProcessing(false);
+            toast({
+                variant: 'destructive',
+                title: 'Error loading image',
+                description: 'The selected file could not be loaded as an image.',
+            });
         }
 
         img.src = photoDataUri;
@@ -115,12 +135,7 @@ export function ImageResize({ onBack, title }: ToolProps) {
     if (!resizedImage || !file) return;
     const link = document.createElement('a');
     link.href = resizedImage;
-    const originalName = file.name.substring(0, file.name.lastIndexOf('.'));
-    const mimeType = resizedImage.split(';')[0].split(':')[1];
-    let fileExtension = mimeType ? mimeType.split('/')[1] : 'png';
-    if (fileExtension === 'jpeg') fileExtension = 'jpg';
-    
-    link.download = `desized-${originalName}.${fileExtension}`;
+    link.download = `${outputFilename}.${outputExtension}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -138,7 +153,7 @@ export function ImageResize({ onBack, title }: ToolProps) {
           <CardTitle>Upload Your Image</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {!resizedImage && !isProcessing ? (
+          {!file ? (
              <FileUpload onFileSelect={(f) => { setFile(f); setResizedImage(null);}} acceptedFileTypes={['image/jpeg', 'image/png', 'image/webp']} />
           ): (
             <div className="flex flex-col items-center gap-4">
@@ -146,7 +161,27 @@ export function ImageResize({ onBack, title }: ToolProps) {
               {resizedImage && (
                 <>
                     <Image src={resizedImage} alt="Resized image" width={400} height={400} className="rounded-md object-contain" />
-                    <Button onClick={handleDownload}>Download Resized Image</Button>
+                    <div className="w-full space-y-4 rounded-md border p-4">
+                        <h3 className="font-medium text-center">Download Options</h3>
+                        <div className="space-y-2">
+                            <Label htmlFor="filename">Filename</Label>
+                            <Input id="filename" value={outputFilename} onChange={(e) => setOutputFilename(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                             <Label htmlFor="extension">File Extension</Label>
+                             <Select value={outputExtension} onValueChange={setOutputExtension}>
+                                <SelectTrigger id="extension">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="jpg">jpg</SelectItem>
+                                    <SelectItem value="png">png</SelectItem>
+                                    <SelectItem value="webp">webp</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <Button onClick={handleDownload} className="w-full">Download Resized Image</Button>
+                    </div>
                 </>
               )}
             </div>
@@ -177,7 +212,7 @@ export function ImageResize({ onBack, title }: ToolProps) {
             </div>
           </div>
         </CardContent>
-        <CardFooter className="gap-2">
+        <CardFooter className="flex-col gap-2">
           <Button className="w-full" size="lg" onClick={handleResize} disabled={!file || isProcessing}>
             {isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Resizing...</> : 'Resize Image'}
           </Button>
