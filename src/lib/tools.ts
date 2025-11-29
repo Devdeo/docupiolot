@@ -86,6 +86,12 @@ export const tools: Tool[] = [
     icon: Stamp,
   },
   {
+    id: 'pdf-to-word',
+    title: 'PDF to Word',
+    description: 'Convert PDF files to editable DOCX documents.',
+    icon: FileText,
+  },
+  {
     id: 'convert-from-pdf',
     title: 'Convert from PDF',
     description: 'Turn PDFs into JPG, DOCX, XLS, and more.',

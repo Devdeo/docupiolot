@@ -9,10 +9,12 @@ import { ToolContainer } from './tool-container';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import JSZip from 'jszip';
+import { Document, Packer, Paragraph, TextRun } from 'docx';
 
 interface ToolProps {
   onBack: () => void;
   title: string;
+  defaultFormat?: string;
 }
 
 type ConvertedFile = {
@@ -21,9 +23,9 @@ type ConvertedFile = {
     mimeType: string;
 };
 
-export default function ConvertFromPdfClient({ onBack, title }: ToolProps) {
+export default function ConvertFromPdfClient({ onBack, title, defaultFormat = 'jpg' }: ToolProps) {
   const [file, setFile] = useState<File | null>(null);
-  const [format, setFormat] = useState<string>('jpg');
+  const [format, setFormat] = useState<string>(defaultFormat);
   const [isConverting, setIsConverting] = useState(false);
   const [convertedImages, setConvertedImages] = useState<string[] | null>(null);
   const [convertedFileData, setConvertedFileData] = useState<ConvertedFile | null>(null);
@@ -85,7 +87,10 @@ export default function ConvertFromPdfClient({ onBack, title }: ToolProps) {
     try {
         if (format === 'jpg') {
             await handleJpgConversion();
-        } else {
+        } else if (format === 'docx') {
+            await handleDocxConversion();
+        }
+        else {
              toast({ variant: 'destructive', title: 'Coming Soon!', description: `Conversion to ${format.toUpperCase()} is not yet supported.` });
              setIsConverting(false);
         }
@@ -100,6 +105,56 @@ export default function ConvertFromPdfClient({ onBack, title }: ToolProps) {
         setIsConverting(false);
     }
   };
+
+  const handleDocxConversion = async () => {
+    if (!file) return;
+
+    const pdfjs = await import('pdfjs-dist/build/pdf');
+    pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.mjs`;
+
+    const pdfData = await file.arrayBuffer();
+    const pdf = await pdfjs.getDocument({ data: pdfData }).promise;
+    const pageCount = pdf.numPages;
+    const paragraphs: Paragraph[] = [];
+
+    for (let i = 0; i < pageCount; i++) {
+        const page = await pdf.getPage(i + 1);
+        const textContent = await page.getTextContent();
+        
+        textContent.items.forEach((item: any) => {
+             paragraphs.push(new Paragraph({
+                children: [new TextRun(item.str)],
+            }));
+        });
+        // Add a paragraph break after each page's content
+        paragraphs.push(new Paragraph({ children: [] }));
+    }
+    await pdf.destroy();
+
+    const doc = new Document({
+        sections: [{
+            properties: {},
+            children: paragraphs,
+        }],
+    });
+    
+    const docxBlob = await Packer.toBlob(doc);
+    const reader = new FileReader();
+    reader.readAsDataURL(docxBlob);
+    reader.onload = () => {
+        const base64data = (reader.result as string).split(',')[1];
+        setConvertedFileData({
+            filename: `${file.name.replace(/\.pdf$/i, '')}.docx`,
+            data: base64data,
+            mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        });
+        toast({
+            title: 'Conversion Successful',
+            description: `Your PDF has been converted into a DOCX file.`,
+        });
+        setIsConverting(false);
+    }
+  }
   
   const handleJpgConversion = async () => {
     if (!file) return;
@@ -174,7 +229,7 @@ export default function ConvertFromPdfClient({ onBack, title }: ToolProps) {
                  </div>
                 <div className="space-y-2">
                     <Label htmlFor="format">Convert to</Label>
-                    <Select value={format} onValueChange={setFormat} disabled={!file}>
+                    <Select value={format} onValueChange={setFormat} disabled={!file || !!defaultFormat}>
                     <SelectTrigger id="format">
                         <SelectValue placeholder="Select output format" />
                     </SelectTrigger>
