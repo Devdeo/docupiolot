@@ -8,7 +8,7 @@ import { FileUpload } from '../file-upload';
 import { ToolContainer } from './tool-container';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { PDFDocument, PDFImage } from 'pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { dataUrlToBlob } from '@/lib/image-utils';
 
@@ -64,80 +64,140 @@ export function PdfResize({ onBack, title }: ToolProps) {
         try {
             const targetBytes = (parseFloat(targetSize) || 2) * (targetUnit === 'MB' ? 1024 * 1024 : 1024);
             const existingPdfBytes = await file.arrayBuffer();
-            const pdfDoc = await PDFDocument.load(existingPdfBytes, { 
-                ignoreEncryption: true 
+            let pdfDoc = await PDFDocument.load(existingPdfBytes, { ignoreEncryption: true });
+
+            // Flatten forms which can sometimes reduce size.
+            const form = pdfDoc.getForm();
+            if(form && !form.isFlattened()) {
+                try {
+                    form.flatten();
+                } catch(e) {
+                    console.warn("Could not flatten form.", e);
+                }
+            }
+
+            const imageRefs = new Set();
+            pdfDoc.context.indirectObjects.forEach((obj) => {
+                if(obj.get('Subtype')?.toString() === '/Image') {
+                    imageRefs.add(obj.tag);
+                }
             });
 
-            // This is a highly complex operation. We will attempt to resize images, which are the main source of size.
-            const imageObjects = pdfDoc.context.indirectObjects.filter(obj => obj.get('Subtype')?.toString() === '/Image');
-            
-            if (imageObjects.length === 0) {
-                 // If no images, just re-save. It can sometimes optimize structure.
+            if (imageRefs.size === 0) {
                 const compressedPdfBytes = await pdfDoc.save();
                 setResizedPdf(compressedPdfBytes);
                 setResizedSize(compressedPdfBytes.length);
                  toast({
-                    title: 'Processing Complete',
-                    description: 'PDF has no images to compress. File size may not be significantly reduced.',
+                    title: 'No Images Found',
+                    description: 'PDF has no images to compress. File size may not be significantly reduced, but it has been re-saved to optimize structure.',
                 });
                 setIsProcessing(false);
                 return;
             }
 
-            const pages = pdfDoc.getPages();
-            for (const page of pages) {
-                const imageNames = page.node.Resources().get(Symbol.for('Names')).Image;
-                if(!imageNames) continue;
+            const totalImageSize = await Array.from(imageRefs).reduce(async (accPromise, tag) => {
+                const acc = await accPromise;
+                const image = pdfDoc.context.lookup(tag);
+                const imageBytes = image.get('Length');
+                return acc + (imageBytes?.asNumber() || 0);
+            }, Promise.resolve(0));
 
-                const imageMap = imageNames.Kids
-                    ? imageNames.Kids.reduce((acc, kid) => kid.Names.asMap(), new Map())
-                    : imageNames.Names.asMap();
+            const nonImageSize = existingPdfBytes.byteLength - totalImageSize;
+            if (nonImageSize > targetBytes) {
+                 throw new Error(`The PDF's base structure (${formatBytes(nonImageSize)}) is larger than the target size. Cannot compress further.`);
+            }
+            
+            const targetImageBytes = targetBytes - nonImageSize;
+            let totalNewImageBytes = 0;
 
-                for(const [name, ref] of imageMap) {
-                    const image = pdfDoc.context.lookup(ref) as PDFImage;
-                    if (!image || !(image instanceof PDFImage)) continue;
+            const imageEntries = pdfDoc.getPages().flatMap(page => page.node.Resources().get(Symbol.for('Names'))?.Image?.asDict().entries() || []);
 
-                    // Extremely simplified re-compression logic.
-                    // A real implementation would be much more involved.
-                    // We just re-embed it with default compression.
-                    const embeddedImage = await pdfDoc.embedJpg(await image.toJpeg());
+            for(const [name, ref] of imageEntries) {
+                const image = pdfDoc.context.lookup(ref);
+                if (!image) continue;
+
+                const {width, height} = image.size();
+                const imageBytes = image.get('Length')?.asNumber() || 0;
+                
+                let compressedImage: { bytes: Uint8Array, width: number, height: number } | null = null;
+                
+                try {
+                    const imageObj = await pdfDoc.embedJpg(await image.toJpeg());
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    if(!ctx) continue;
+
+                    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+                        const i = new Image();
+                        i.onload = () => resolve(i);
+                        i.onerror = reject;
+                        i.src = `data:image/jpeg;base64,${btoa(String.fromCharCode(...imageObj.data))}`;
+                    });
+
+                    let quality = 0.75;
+                    let currentBytes: Uint8Array | null = null;
+                    let scale = 1.0;
+
+                    while(scale > 0.1) {
+                        canvas.width = width * scale;
+                        canvas.height = height * scale;
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        
+                        let low = 0, high = 1.0;
+                        let bestBytes: Uint8Array | null = null;
+
+                        for(let i=0; i<8; i++) {
+                            quality = (low + high) / 2;
+                            const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                            const blob = await dataUrlToBlob(dataUrl);
+                            if (blob.size < imageBytes * (targetImageBytes / totalImageSize)) {
+                                bestBytes = new Uint8Array(await blob.arrayBuffer());
+                                low = quality;
+                            } else {
+                                high = quality;
+                            }
+                        }
+
+                        if (bestBytes) {
+                             currentBytes = bestBytes;
+                             break;
+                        }
+                        scale -= 0.1;
+                    }
                     
-                    // This is the tricky part: replacing the image requires modifying the page's content stream
-                    // which is very complex. For this best-effort approach, we just embed and hope for the best.
-                    // This won't replace existing images, but is a placeholder for the logic.
+                    if (currentBytes) {
+                        compressedImage = { bytes: currentBytes, width: canvas.width, height: canvas.height };
+                    }
+
+                } catch (e) {
+                    console.warn("Could not process an image, skipping it.", e);
+                    continue; // Skip images that can't be processed (e.g. masks, non-jpeg compatible)
+                }
+
+                if (compressedImage) {
+                    totalNewImageBytes += compressedImage.bytes.length;
+                    const newImage = await pdfDoc.embedJpg(compressedImage.bytes);
+                    image.set(Symbol.for('Ref'), newImage.ref);
                 }
             }
-             
-            // Best-effort compression by re-saving.
-            const form = pdfDoc.getForm();
-            if(form && !form.isFlattened()) {
-                form.flatten();
-            }
 
-            const compressedPdfBytes = await pdfDoc.save();
-            
-            if (compressedPdfBytes.length > targetBytes && compressedPdfBytes.length < existingPdfBytes.byteLength) {
-                setResizedPdf(compressedPdfBytes);
-                setResizedSize(compressedPdfBytes.length);
+
+            const finalPdfBytes = await pdfDoc.save();
+            setResizedPdf(finalPdfBytes);
+            setResizedSize(finalPdfBytes.length);
+
+            if(finalPdfBytes.length > targetBytes) {
                 toast({
                     title: 'Partial Compression',
-                    description: `Could not meet target size, but reduced size by ${Math.round(100 - (compressedPdfBytes.length/existingPdfBytes.byteLength) * 100)}%.`,
-                });
-
-            } else if (compressedPdfBytes.length >= existingPdfBytes.byteLength) {
-                toast({
-                    variant: 'destructive',
-                    title: 'Compression Failed',
-                    description: `Could not reduce the file size. The PDF may already be optimized.`,
+                    description: 'Could not meet the target size exactly, but compressed the file as much as possible.',
                 });
             } else {
-                 setResizedPdf(compressedPdfBytes);
-                 setResizedSize(compressedPdfBytes.length);
-                 toast({
-                    title: 'Compression Complete',
-                    description: `The PDF has been compressed. Check the new file size.`,
+                toast({
+                    title: 'Compression Successful',
+                    description: `PDF compressed to ${formatBytes(finalPdfBytes.length)}.`,
                 });
             }
+
 
         } catch (error) {
             console.error('Error processing PDF:', error);
@@ -183,7 +243,7 @@ export function PdfResize({ onBack, title }: ToolProps) {
       <Card className="w-full shadow-lg">
         <CardHeader>
           <CardTitle>Compress PDF</CardTitle>
-          <CardDescription>Upload a PDF to reduce its file size. Compression is a best-effort and results may vary, especially for text-heavy documents.</CardDescription>
+          <CardDescription>Upload a PDF to reduce its file size by optimizing embedded images. Results may vary.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {!file ? (
