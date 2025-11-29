@@ -9,6 +9,7 @@ import { ToolContainer } from './tool-container';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import JSZip from 'jszip';
+import { type LucideIcon } from 'lucide-react';
 
 interface ToolProps {
   onBack: () => void;
@@ -27,6 +28,7 @@ export function ConvertFromPdf({ onBack, title }: ToolProps) {
       toast({ variant: 'destructive', title: 'Please select a file and format.' });
       return;
     }
+    
     if (format !== 'jpg') {
         toast({ variant: 'destructive', title: 'Coming Soon!', description: `Conversion to ${format.toUpperCase()} is not yet supported.` });
         return;
