@@ -68,9 +68,10 @@ export default function PdfResizeClient({ onBack, title }: ToolProps) {
 
     setTimeout(async () => {
       try {
-        const { default: pdfjs } = await import('pdfjs-dist/build/pdf');
-        const { default: pdfjsWorker } = await import('pdfjs-dist/build/pdf.worker.mjs');
-        pdfjs.GlobalWorkerOptions.workerSrc = new URL(pdfjsWorker, import.meta.url).toString();
+        const pdfjs = await import('pdfjs-dist/build/pdf');
+        const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.mjs');
+        
+        pdfjs.GlobalWorkerOptions.workerSrc = new URL((pdfjsWorker as any).default, import.meta.url).toString();
         
         const existingPdfBytes = await file.arrayBuffer();
         
@@ -83,7 +84,7 @@ export default function PdfResizeClient({ onBack, title }: ToolProps) {
         for (let i = 0; i < pageCount; i++) {
             setProgressMessage(`Converting page ${i + 1} of ${pageCount} to image`);
             const page = await pdf.getPage(i + 1);
-            const viewport = page.getViewport({ scale: 2.0 }); // Render at a higher scale for better quality initially
+            const viewport = page.getViewport({ scale: 2.0 });
             
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
@@ -106,8 +107,8 @@ export default function PdfResizeClient({ onBack, title }: ToolProps) {
         setProgressMessage('Compressing images...');
         let currentImages: {bytes: ArrayBuffer, width: number, height: number}[] = [];
         let totalImageSize = Infinity;
-        let quality = 0.9; // Start with decent quality
-        let scale = 1.0;   // Start with original dimensions
+        let quality = 0.9;
+        let scale = 1.0;
         const MAX_ITERATIONS = 50;
 
         for (let i = 0; i < MAX_ITERATIONS && totalImageSize > targetBytes; i++) {
@@ -143,6 +144,7 @@ export default function PdfResizeClient({ onBack, title }: ToolProps) {
                 quality -= 0.05;
              } else if (scale > 0.2) {
                 scale -= 0.05;
+                quality = 0.9; // Reset quality when scaling down
              } else {
                 quality -= 0.01;
              }
@@ -282,3 +284,5 @@ export default function PdfResizeClient({ onBack, title }: ToolProps) {
     </ToolContainer>
   );
 }
+
+    
