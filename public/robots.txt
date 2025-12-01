@@ -1,8 +1,8 @@
-# See https://www.robotstxt.org/robotstxt.html for documentation on how to use the robots.txt file
-
-# Allow all user-agents to crawl the site.
 User-agent: *
-Disallow:
+Allow: /
 
-# Point to the sitemap
-Sitemap: https://docupilot.app/sitemap.xml
+Disallow: /adblock-detected
+Disallow: /_next/
+Disallow: /api/
+
+Sitemap: https://docupilot.co.in/sitemap.xml
