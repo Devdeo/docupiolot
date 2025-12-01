@@ -78,6 +78,12 @@ npm start
 - Adblock detection with redirect
 
 ## Recent Changes
+- December 2025: PWA Implementation
+  - Added manifest.json for PWA support
+  - Implemented service worker for offline caching
+  - Added install prompt popup component
+  - Configured Apple mobile web app meta tags
+  - Service worker enables network-first caching strategy
 - December 2024: Initial Replit setup
   - Configured for port 5000
   - Updated domain to docupilot.co.in

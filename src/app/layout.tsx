@@ -8,6 +8,7 @@ import { useAdblockDetector } from '@/hooks/use-adblock-detector';
 import AdblockDetectedPage from './adblock-detected/page';
 import { InterstitialAdProvider } from '@/hooks/use-interstitial-ad';
 import { InterstitialAd } from '@/components/analytics/interstitial-ad';
+import { InstallPrompt } from '@/components/analytics/install-prompt';
 
 export default function RootLayout({
   children,
@@ -24,6 +25,13 @@ export default function RootLayout({
         <link rel="canonical" href="https://docupilot.co.in/" />
         <meta name="keywords" content="pdf tools india, image compressor india, online pdf editor, passport photo maker, photo to 50kb, convert pdf online, document tools india, docupilot, free pdf tools, pdf converter online, image to pdf, pdf to word" />
         <meta name="google-adsense-account" content="ca-pub-5651978142792714" />
+        <meta name="theme-color" content="#ffffff" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="white" />
+        <meta name="apple-mobile-web-app-title" content="DocuPilot" />
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%233b82f6' width='180' height='180'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='90' font-weight='bold' fill='white' font-family='system-ui'>D</text></svg>" />
 
         <meta property="og:title" content="DocuPilot — Free Online PDF, Image & Document Tools | docupilot.co.in" />
         <meta property="og:description" content="Free tools for PDF, images, converters, and document editing. Fast, secure & 100% private. All processing happens in your browser." />
@@ -120,6 +128,7 @@ export default function RootLayout({
             <Footer />
             <Toaster />
             <InterstitialAd />
+            <InstallPrompt />
           </InterstitialAdProvider>
         )}
       </body>
