@@ -1,10 +1,14 @@
 import Link from 'next/link';
 import { ShieldCheck } from 'lucide-react';
+import { GoogleAdsense } from '../analytics/google-adsense';
 
 export function Footer() {
   return (
     <footer className="bg-muted text-muted-foreground mt-auto">
       <div className="container mx-auto px-4 py-8">
+        <div className="mb-6">
+          <GoogleAdsense />
+        </div>
         <div className="flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="text-center md:text-left">
             <p className="text-lg font-semibold text-foreground flex items-center gap-2">
@@ -12,7 +16,7 @@ export function Footer() {
               Privacy You Can Trust
             </p>
             <p className="text-sm max-w-md mt-1">
-             DocuPilot never stores your files. All processing happens **locally in your browser**, ensuring 100% privacy and complete data security.
+             DocuPilot never stores your files. All processing happens locally in your browser, ensuring 100% privacy and complete data security.
             </p>
           </div>
           <div className="flex flex-col items-center md:items-end gap-2 text-sm">

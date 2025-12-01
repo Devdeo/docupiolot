@@ -22,6 +22,10 @@ export default function PrivacyPolicyPage() {
             <strong>Your files are never uploaded to, processed on, or stored on our servers or any third-party servers.</strong> They do not leave your device. This means you have full control over your data at all times.
           </p>
 
+          <div className="my-6">
+            <GoogleAdsense />
+          </div>
+
           <h2 className="text-2xl font-semibold pt-4">2. Information We Collect</h2>
           <p>
             We do not collect any personal information. We do not use cookies or any tracking technologies for advertising purposes. We may use simple, anonymous analytics to understand how many visitors use our site and which tools are most popular, but this data is aggregated and cannot be tied to any individual.
@@ -31,6 +35,10 @@ export default function PrivacyPolicyPage() {
           <p>
             Since we don't collect your personal information or files, we don't use them for anything. The anonymous usage data we might collect is used solely to improve the application and decide which features to build next.
           </p>
+
+          <div className="my-6">
+            <GoogleAdsense />
+          </div>
 
           <h2 className="text-2xl font-semibold pt-4">4. Third-Party Services</h2>
           <p>
@@ -46,6 +54,10 @@ export default function PrivacyPolicyPage() {
           <p>
             If you have any questions about this Privacy Policy, please feel free to contact us.
           </p>
+        </div>
+
+        <div className="mt-8">
+          <GoogleAdsense />
         </div>
       </div>
     </div>

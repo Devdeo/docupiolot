@@ -17,6 +17,11 @@ export default function AboutPage() {
           <p>
             DocuPilot was born from a simple idea: document and image processing should be easy, secure, and accessible to everyone. We noticed that many online tools either required uploading sensitive files to unknown servers or were locked behind expensive subscriptions. We wanted to create a better alternative.
           </p>
+
+          <div className="my-6">
+            <GoogleAdsense />
+          </div>
+
           <p>
             Our mission is to provide a suite of powerful, professional-grade tools that run entirely in your browser. This means your files never leave your computer. Whether you're resizing an image, compressing a PDF, or converting a document, all the processing is done locally. Your privacy and data security are guaranteed.
           </p>
@@ -32,9 +37,18 @@ export default function AboutPage() {
               <strong>User-Friendly Design:</strong> We strive to make our tools intuitive and easy to use, regardless of your technical skill level.
             </li>
           </ul>
+
+          <div className="my-6">
+            <GoogleAdsense />
+          </div>
+
           <p>
             Thank you for choosing DocuPilot. We're constantly working to add new tools and improve existing ones.
           </p>
+        </div>
+
+        <div className="mt-8">
+          <GoogleAdsense />
         </div>
       </div>
     </div>

@@ -6,6 +6,9 @@ import { ToolGrid } from './tool-grid';
 import { GoogleAdsense } from '../analytics/google-adsense';
 
 export function DocuPilotApp() {
+  const firstHalf = toolDefinitions.slice(0, 8);
+  const secondHalf = toolDefinitions.slice(8);
+
   return (
     <div className="w-full bg-background text-foreground">
       <motion.div
@@ -28,7 +31,23 @@ export function DocuPilotApp() {
             <GoogleAdsense />
           </div>
           <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-center mb-8">Powerful Tools to Boost Your Workflow</h2>
-          <ToolGrid tools={toolDefinitions} />
+          <ToolGrid tools={firstHalf} />
+          <div className="my-8">
+            <GoogleAdsense />
+          </div>
+          <ToolGrid tools={secondHalf} />
+          <div className="mt-8">
+            <GoogleAdsense />
+          </div>
+          <div className="mt-12 text-center">
+            <h3 className="text-xl font-semibold mb-4">Why Choose DocuPilot?</h3>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              All your files are processed locally in your browser. We never upload or store your documents on any server. 100% privacy guaranteed.
+            </p>
+          </div>
+          <div className="mt-8">
+            <GoogleAdsense />
+          </div>
         </main>
       </motion.div>
     </div>

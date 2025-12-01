@@ -28,6 +28,10 @@ export default function TermsOfServicePage() {
             DocuPilot provides a collection of online tools for document and image processing. All tools operate entirely on the client-side, meaning your files are processed within your web browser and are never uploaded to our servers.
           </p>
 
+          <div className="my-6">
+            <GoogleAdsense />
+          </div>
+
           <h2 className="text-2xl font-semibold pt-4">3. User Conduct and Responsibilities</h2>
           <p>
             You are solely responsible for the content you process using our tools. You agree not to use the service for any illegal or unauthorized purpose. You must not, in the use of the Service, violate any laws in your jurisdiction.
@@ -37,6 +41,10 @@ export default function TermsOfServicePage() {
           <p>
             We do not store, view, or manage any of your personal files. The security and privacy of your documents are your responsibility and remain in your control, as they never leave your computer.
           </p>
+
+          <div className="my-6">
+            <GoogleAdsense />
+          </div>
 
           <h2 className="text-2xl font-semibold pt-4">5. Disclaimer of Warranties</h2>
           <p>
@@ -52,6 +60,10 @@ export default function TermsOfServicePage() {
           <p>
             These terms shall be governed and construed in accordance with the laws of the jurisdiction in which the website owner resides, without regard to its conflict of law provisions.
           </p>
+        </div>
+
+        <div className="mt-8">
+          <GoogleAdsense />
         </div>
       </div>
     </div>
