@@ -23,6 +23,7 @@ export default function RootLayout({
         <meta name="description" content="DocuPilot offers free online tools for PDF editing, image compression, converters, photo editing, passport photo creation, and more. Fast, secure, and perfect for India users. Visit docupilot.co.in" />
         <link rel="canonical" href="https://docupilot.co.in/" />
         <meta name="keywords" content="pdf tools india, image compressor india, online pdf editor, passport photo maker, photo to 50kb, convert pdf online, document tools india, docupilot, free pdf tools, pdf converter online, image to pdf, pdf to word" />
+        <meta name="google-adsense-account" content="ca-pub-5651978142792714" />
 
         <meta property="og:title" content="DocuPilot — Free Online PDF, Image & Document Tools | docupilot.co.in" />
         <meta property="og:description" content="Free tools for PDF, images, converters, and document editing. Fast, secure & 100% private. All processing happens in your browser." />
