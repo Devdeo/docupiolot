@@ -1,7 +1,6 @@
 import { MetadataRoute } from 'next';
  
-// IMPORTANT: You should replace this with your actual domain
-const URL = 'https://docupilot.app';
+const URL = 'https://docupilot.co.in';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [

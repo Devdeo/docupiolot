@@ -28,7 +28,7 @@ export function Footer() {
               </Link>
             </nav>
             <p className="text-xs mt-2">
-              © {new Date().getFullYear()} DocuPilot. All rights reserved.
+              © {new Date().getFullYear()} DocuPilot | docupilot.co.in - All rights reserved.
             </p>
           </div>
         </div>
