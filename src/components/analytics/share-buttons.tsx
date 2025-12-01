@@ -51,9 +51,9 @@ export function ShareButtons() {
   };
 
   return (
-    <div className="flex items-center gap-4 justify-center flex-wrap">
-      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Share with friends:</span>
-      <div className="flex gap-3 flex-wrap justify-center">
+    <div className="flex items-center gap-3 justify-center flex-wrap">
+      <span className="text-sm font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">Share with friends:</span>
+      <div className="flex gap-2 flex-wrap justify-center">
         {shareLinks.map((link) => {
           const Icon = link.icon;
           return (
