@@ -33,17 +33,11 @@ export function ToolContainer({ title, children }: ToolContainerProps) {
           {title}
         </h1>
       </div>
-      <div className="mb-6">
-        <GoogleAdsense />
-      </div>
+      <GoogleAdsense />
       <div className="mx-auto max-w-2xl">
         {children}
-        <div className="mt-8">
-          <GoogleAdsense />
-        </div>
-        <div className="mt-8">
-          <GoogleAdsense />
-        </div>
+        <GoogleAdsense />
+        <GoogleAdsense />
       </div>
     </div>
   );

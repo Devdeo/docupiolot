@@ -9,9 +9,7 @@ export default function TermsOfServicePage() {
           Last Updated: {new Date().toLocaleDateString()}
         </p>
 
-        <div className="mb-8">
-          <GoogleAdsense />
-        </div>
+        <GoogleAdsense />
 
         <div className="space-y-6 text-foreground prose lg:prose-xl">
           <p>
@@ -28,9 +26,7 @@ export default function TermsOfServicePage() {
             DocuPilot provides a collection of online tools for document and image processing. All tools operate entirely on the client-side, meaning your files are processed within your web browser and are never uploaded to our servers.
           </p>
 
-          <div className="my-6">
-            <GoogleAdsense />
-          </div>
+          <GoogleAdsense />
 
           <h2 className="text-2xl font-semibold pt-4">3. User Conduct and Responsibilities</h2>
           <p>
@@ -42,9 +38,7 @@ export default function TermsOfServicePage() {
             We do not store, view, or manage any of your personal files. The security and privacy of your documents are your responsibility and remain in your control, as they never leave your computer.
           </p>
 
-          <div className="my-6">
-            <GoogleAdsense />
-          </div>
+          <GoogleAdsense />
 
           <h2 className="text-2xl font-semibold pt-4">5. Disclaimer of Warranties</h2>
           <p>
@@ -62,9 +56,7 @@ export default function TermsOfServicePage() {
           </p>
         </div>
 
-        <div className="mt-8">
-          <GoogleAdsense />
-        </div>
+        <GoogleAdsense />
       </div>
     </div>
   );

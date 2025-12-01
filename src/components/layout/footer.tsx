@@ -6,9 +6,7 @@ export function Footer() {
   return (
     <footer className="bg-muted text-muted-foreground mt-auto">
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-6">
-          <GoogleAdsense />
-        </div>
+        <GoogleAdsense />
         <div className="flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="text-center md:text-left">
             <p className="text-lg font-semibold text-foreground flex items-center gap-2">

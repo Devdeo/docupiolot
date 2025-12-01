@@ -76,11 +76,10 @@ export default function RootLayout({
           rel="stylesheet"
         />
 
-        <Script
+        <script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5651978142792714"
           crossOrigin="anonymous"
-          strategy="afterInteractive"
         />
 
         <Script id="google-tag-manager" strategy="afterInteractive">

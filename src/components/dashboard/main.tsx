@@ -27,27 +27,19 @@ export function DocuPilotApp() {
           </div>
         </header>
         <main className="container mx-auto px-4 pb-16">
-          <div className="mb-8">
-            <GoogleAdsense />
-          </div>
-          <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-center mb-8">Powerful Tools to Boost Your Workflow</h2>
+          <GoogleAdsense />
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-center mb-8 mt-8">Powerful Tools to Boost Your Workflow</h2>
           <ToolGrid tools={firstHalf} />
-          <div className="my-8">
-            <GoogleAdsense />
-          </div>
+          <GoogleAdsense />
           <ToolGrid tools={secondHalf} />
-          <div className="mt-8">
-            <GoogleAdsense />
-          </div>
+          <GoogleAdsense />
           <div className="mt-12 text-center">
             <h3 className="text-xl font-semibold mb-4">Why Choose DocuPilot?</h3>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               All your files are processed locally in your browser. We never upload or store your documents on any server. 100% privacy guaranteed.
             </p>
           </div>
-          <div className="mt-8">
-            <GoogleAdsense />
-          </div>
+          <GoogleAdsense />
         </main>
       </motion.div>
     </div>

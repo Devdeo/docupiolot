@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 declare global {
   interface Window {
@@ -11,14 +11,15 @@ declare global {
 const GA_ADSENSE_ID = 'ca-pub-5651978142792714';
 
 export function GoogleAdsense() {
-  const adRef = useRef<HTMLDivElement>(null);
+  const adRef = useRef<HTMLModElement>(null);
   const isAdLoaded = useRef(false);
+  const [hasAd, setHasAd] = useState(false);
 
   useEffect(() => {
     if (isAdLoaded.current) return;
     
     try {
-      if (typeof window !== 'undefined' && adRef.current) {
+      if (typeof window !== 'undefined') {
         (window.adsbygoogle = window.adsbygoogle || []).push({});
         isAdLoaded.current = true;
       }
@@ -27,15 +28,52 @@ export function GoogleAdsense() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!adRef.current) return;
+
+    const observer = new MutationObserver(() => {
+      if (adRef.current) {
+        const hasContent = adRef.current.getAttribute('data-ad-status') === 'filled' ||
+                          adRef.current.innerHTML.trim().length > 0 ||
+                          adRef.current.querySelector('iframe') !== null;
+        setHasAd(hasContent);
+      }
+    });
+
+    observer.observe(adRef.current, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-ad-status']
+    });
+
+    const timer = setTimeout(() => {
+      if (adRef.current) {
+        const hasContent = adRef.current.getAttribute('data-ad-status') === 'filled' ||
+                          adRef.current.innerHTML.trim().length > 0 ||
+                          adRef.current.querySelector('iframe') !== null;
+        setHasAd(hasContent);
+      }
+    }, 2000);
+
+    return () => {
+      observer.disconnect();
+      clearTimeout(timer);
+    };
+  }, []);
+
   return (
-    <div ref={adRef} className="ad-container my-4">
-      <ins
-        className="adsbygoogle"
-        style={{ display: 'block', minHeight: '100px' }}
-        data-ad-client={GA_ADSENSE_ID}
-        data-ad-format="autorelaxed"
-        data-full-width-responsive="true"
-      ></ins>
-    </div>
+    <ins
+      ref={adRef}
+      className="adsbygoogle"
+      style={{
+        display: hasAd ? 'block' : 'none',
+        minHeight: hasAd ? 'auto' : '0',
+        overflow: 'hidden'
+      }}
+      data-ad-client={GA_ADSENSE_ID}
+      data-ad-format="autorelaxed"
+      data-full-width-responsive="true"
+    ></ins>
   );
 }

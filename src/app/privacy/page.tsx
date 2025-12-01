@@ -9,9 +9,7 @@ export default function PrivacyPolicyPage() {
           Last Updated: {new Date().toLocaleDateString()}
         </p>
 
-        <div className="mb-8">
-          <GoogleAdsense />
-        </div>
+        <GoogleAdsense />
 
         <div className="space-y-6 text-foreground prose lg:prose-xl">
           <h2 className="text-2xl font-semibold">1. The Most Important Thing: We Don't Store Your Files</h2>
@@ -22,9 +20,7 @@ export default function PrivacyPolicyPage() {
             <strong>Your files are never uploaded to, processed on, or stored on our servers or any third-party servers.</strong> They do not leave your device. This means you have full control over your data at all times.
           </p>
 
-          <div className="my-6">
-            <GoogleAdsense />
-          </div>
+          <GoogleAdsense />
 
           <h2 className="text-2xl font-semibold pt-4">2. Information We Collect</h2>
           <p>
@@ -36,9 +32,7 @@ export default function PrivacyPolicyPage() {
             Since we don't collect your personal information or files, we don't use them for anything. The anonymous usage data we might collect is used solely to improve the application and decide which features to build next.
           </p>
 
-          <div className="my-6">
-            <GoogleAdsense />
-          </div>
+          <GoogleAdsense />
 
           <h2 className="text-2xl font-semibold pt-4">4. Third-Party Services</h2>
           <p>
@@ -56,9 +50,7 @@ export default function PrivacyPolicyPage() {
           </p>
         </div>
 
-        <div className="mt-8">
-          <GoogleAdsense />
-        </div>
+        <GoogleAdsense />
       </div>
     </div>
   );
