@@ -2,6 +2,12 @@
 
 import { useEffect, useRef } from 'react';
 
+declare global {
+  interface Window {
+    adsbygoogle: unknown[];
+  }
+}
+
 const GA_ADSENSE_ID = 'ca-pub-5651978142792714';
 
 export function GoogleAdsense() {
@@ -12,8 +18,7 @@ export function GoogleAdsense() {
     if (isAdLoaded.current) return;
     
     try {
-      // @ts-ignore
-      if (window.adsbygoogle && adRef.current) {
+      if (typeof window !== 'undefined' && adRef.current) {
         (window.adsbygoogle = window.adsbygoogle || []).push({});
         isAdLoaded.current = true;
       }
