@@ -45,23 +45,33 @@ export function InstallPrompt() {
   // Register service worker
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch((err) => {
-        console.log('ServiceWorker registration failed: ', err);
-      });
+      navigator.serviceWorker
+        .register('/sw.js')
+        .catch((error) => {
+          if (error instanceof Error) {
+            console.log('ServiceWorker registration failed:', error.message);
+          }
+        })
+        .catch(() => {
+          // Silently ignore any errors
+        });
     }
   }, []);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
 
-    await deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-
-    if (outcome === 'accepted') {
-      setShowPrompt(false);
+    try {
+      await deferredPrompt.prompt();
+      const choiceResult = await Promise.resolve(deferredPrompt.userChoice);
+      if (choiceResult && choiceResult.outcome === 'accepted') {
+        setShowPrompt(false);
+      }
+    } catch (error) {
+      // Silently handle errors
+    } finally {
+      setDeferredPrompt(null);
     }
-
-    setDeferredPrompt(null);
   };
 
   const handleDismiss = () => {

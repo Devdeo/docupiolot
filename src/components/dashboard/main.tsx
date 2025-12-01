@@ -7,6 +7,7 @@ import { GoogleAdsense } from '../analytics/google-adsense';
 import { AdInArticle } from '../analytics/ad-in-article';
 import { AdAuto } from '../analytics/ad-auto';
 import { AdRelaxed } from '../analytics/ad-relaxed';
+import { ShareButtons } from '../analytics/share-buttons';
 
 export function DocuPilotApp() {
   const firstHalf = toolDefinitions.slice(0, 8);
@@ -43,6 +44,9 @@ export function DocuPilotApp() {
             </p>
           </div>
           <AdAuto />
+          <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800">
+            <ShareButtons />
+          </div>
         </main>
       </motion.div>
     </div>

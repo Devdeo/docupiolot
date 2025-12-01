@@ -78,6 +78,10 @@ npm start
 - Adblock detection with redirect
 
 ## Recent Changes
+- December 2025: Social Media Sharing
+  - Added share buttons component with Twitter, Facebook, WhatsApp, LinkedIn, Telegram, and Email
+  - Placed on homepage and footer for maximum visibility
+  - Allows users to easily share DocuPilot with friends and social networks
 - December 2025: PWA Implementation
   - Added manifest.json for PWA support
   - Implemented service worker for offline caching
