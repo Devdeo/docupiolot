@@ -2,7 +2,9 @@
 
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { GoogleAdsense } from '@/components/analytics/google-adsense';
+import { AdAuto } from '@/components/analytics/ad-auto';
+import { AdInArticle } from '@/components/analytics/ad-in-article';
+import { AdRelaxed } from '@/components/analytics/ad-relaxed';
 import { useRouter } from 'next/navigation';
 
 interface ToolContainerProps {
@@ -33,11 +35,11 @@ export function ToolContainer({ title, children }: ToolContainerProps) {
           {title}
         </h1>
       </div>
-      <GoogleAdsense />
+      <AdAuto />
       <div className="mx-auto max-w-2xl">
         {children}
-        <GoogleAdsense />
-        <GoogleAdsense />
+        <AdInArticle />
+        <AdRelaxed />
       </div>
     </div>
   );

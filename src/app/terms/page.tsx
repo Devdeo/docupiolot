@@ -6,7 +6,7 @@ export default function TermsOfServicePage() {
       <div className="max-w-3xl mx-auto">
         <h1 className="text-4xl font-bold mb-4">Terms of Service</h1>
         <p className="text-lg text-muted-foreground mb-8">
-          Last Updated: {new Date().toLocaleDateString()}
+          Last Updated: December 01, 2025
         </p>
 
         <GoogleAdsense />

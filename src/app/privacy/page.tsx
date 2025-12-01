@@ -6,7 +6,7 @@ export default function PrivacyPolicyPage() {
       <div className="max-w-3xl mx-auto">
         <h1 className="text-4xl font-bold mb-4">Privacy Policy</h1>
         <p className="text-lg text-muted-foreground mb-8">
-          Last Updated: {new Date().toLocaleDateString()}
+          Last Updated: December 01, 2025
         </p>
 
         <GoogleAdsense />
@@ -46,7 +46,7 @@ export default function PrivacyPolicyPage() {
 
           <h2 className="text-2xl font-semibold pt-4">6. Contact Us</h2>
           <p>
-            If you have any questions about this Privacy Policy, please feel free to contact us.
+            If you have any questions about this Privacy Policy, please feel free to contact us at <a href="mailto:help@docupilot.co.in" className="text-primary hover:underline">help@docupilot.co.in</a>.
           </p>
         </div>
 

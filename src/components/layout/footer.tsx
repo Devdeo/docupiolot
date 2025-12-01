@@ -30,7 +30,12 @@ export function Footer() {
               </Link>
             </nav>
             <p className="text-xs mt-2">
-              © {new Date().getFullYear()} DocuPilot | docupilot.co.in - All rights reserved.
+              <a href="mailto:help@docupilot.co.in" className="hover:text-primary transition-colors">
+                Contact: help@docupilot.co.in
+              </a>
+            </p>
+            <p className="text-xs">
+              © 2025 DocuPilot | docupilot.co.in - All rights reserved.
             </p>
           </div>
         </div>

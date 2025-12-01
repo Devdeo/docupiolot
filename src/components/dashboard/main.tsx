@@ -4,6 +4,9 @@ import { motion } from 'framer-motion';
 import { tools as toolDefinitions } from '@/lib/tools';
 import { ToolGrid } from './tool-grid';
 import { GoogleAdsense } from '../analytics/google-adsense';
+import { AdInArticle } from '../analytics/ad-in-article';
+import { AdAuto } from '../analytics/ad-auto';
+import { AdRelaxed } from '../analytics/ad-relaxed';
 
 export function DocuPilotApp() {
   const firstHalf = toolDefinitions.slice(0, 8);
@@ -27,19 +30,19 @@ export function DocuPilotApp() {
           </div>
         </header>
         <main className="container mx-auto px-4 pb-16">
-          <GoogleAdsense />
+          <AdAuto />
           <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-center mb-8 mt-8">Powerful Tools to Boost Your Workflow</h2>
           <ToolGrid tools={firstHalf} />
-          <GoogleAdsense />
+          <AdInArticle />
           <ToolGrid tools={secondHalf} />
-          <GoogleAdsense />
+          <AdRelaxed />
           <div className="mt-12 text-center">
             <h3 className="text-xl font-semibold mb-4">Why Choose DocuPilot?</h3>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               All your files are processed locally in your browser. We never upload or store your documents on any server. 100% privacy guaranteed.
             </p>
           </div>
-          <GoogleAdsense />
+          <AdAuto />
         </main>
       </motion.div>
     </div>
