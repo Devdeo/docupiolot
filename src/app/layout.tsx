@@ -82,6 +82,12 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
 
+        <script 
+          async 
+          custom-element="amp-auto-ads"
+          src="https://cdn.ampproject.org/v0/amp-auto-ads-0.1.js"
+        />
+
         <Script id="google-tag-manager" strategy="afterInteractive">
           {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
           new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -101,6 +107,9 @@ export default function RootLayout({
         </noscript>
 
         <div id="ad-banner-bait" style={{ height: '1px', width: '1px', position: 'absolute', left: '-9999px', top: '-9999px' }} />
+
+        <amp-auto-ads type="adsense" data-ad-client="ca-pub-5651978142792714" />
+
 
         {adblockDetected ? (
           <AdblockDetectedPage />
